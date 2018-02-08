@@ -6,6 +6,9 @@ import com.amazonaws.services.s3.model.*;
 import ly.generalassemb.de.american.express.ingress.model.FixedWidthDataFileComponent;
 import ly.generalassemb.de.american.express.ingress.model.file.ComponentSerializer.SerializedComponent;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.springframework.batch.core.StepExecution;
+import org.springframework.batch.core.annotation.BeforeStep;
+import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.item.ItemWriter;
 
 import java.io.ByteArrayInputStream;
@@ -16,6 +19,9 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class AmexS3ComponentWriter implements ItemWriter<SerializedComponent<String>> {
+
+    private StepExecution stepExecution;
+
     private static final DateFormat df = new SimpleDateFormat("yyyyMMdd");
 
     private AmazonS3 amazonS3;
@@ -96,6 +102,12 @@ public class AmexS3ComponentWriter implements ItemWriter<SerializedComponent<Str
             component.setPayload(new AmazonS3URI("s3://" + req.getBucketName() + "/" + req.getKey()));
             out.add(component);
         }
+        ExecutionContext stepContext = this.stepExecution.getExecutionContext();
+        stepContext.put("s3SerializedComponents", out);
+    }
+    @BeforeStep
+    public void saveStepExecution(StepExecution stepExecution) {
+        this.stepExecution = stepExecution;
     }
 }
 

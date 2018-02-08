@@ -6,7 +6,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.jcraft.jsch.ChannelSftp;
 import ly.generalassemb.de.american.express.ingress.filter.FixedWidthFileComponentFilter;
+import ly.generalassemb.de.american.express.ingress.model.FixedWidthDataFile;
 import ly.generalassemb.de.american.express.ingress.model.FixedWidthDataFileComponent;
+import ly.generalassemb.de.american.express.ingress.model.file.ComponentSerializer.SerializedComponent;
 import ly.generalassemb.de.american.express.ingress.model.file.reader.AmexFileItemReader;
 import ly.generalassemb.de.american.express.ingress.model.file.writer.AmexS3ComponentWriter;
 import ly.generalassemb.de.american.express.ingress.processor.AmexPoJoToSerializerProcessor;
@@ -16,17 +18,17 @@ import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.configuration.annotation.*;
-import org.springframework.batch.core.job.builder.FlowJobBuilder;
-import org.springframework.batch.core.job.builder.JobBuilder;
-import org.springframework.batch.core.job.builder.JobFlowBuilder;
 import org.springframework.batch.core.launch.support.SimpleJobLauncher;
+import org.springframework.batch.core.listener.ExecutionContextPromotionListener;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.repository.support.JobRepositoryFactoryBean;
+import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.integration.launch.JobLaunchingGateway;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -51,13 +53,16 @@ import org.springframework.integration.sftp.filters.SftpSimplePatternFileListFil
 import org.springframework.integration.sftp.inbound.SftpInboundFileSynchronizer;
 import org.springframework.integration.sftp.inbound.SftpInboundFileSynchronizingMessageSource;
 import org.springframework.integration.sftp.session.DefaultSftpSessionFactory;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 
@@ -67,9 +72,15 @@ import java.util.stream.Collectors;
 
 public class AppConfig extends DefaultBatchConfigurer {
 
+
+    @Autowired
+    private AmazonS3 amazonS3;
+    public void setAmazonS3(AmazonS3 amazonS3) {
+        this.amazonS3 = amazonS3;
+    }
+
     @Autowired
     private DataSource jobRepositoryDataSource;
-
     public void setJobRepositoryDataSource(DataSource jobRepositoryDataSource) {
         this.jobRepositoryDataSource = jobRepositoryDataSource;
     }
@@ -82,7 +93,6 @@ public class AppConfig extends DefaultBatchConfigurer {
 
     @Autowired
     private StepBuilderFactory steps;
-
     public void setSteps(StepBuilderFactory steps) {
         this.steps = steps;
     }
@@ -196,13 +206,25 @@ public class AppConfig extends DefaultBatchConfigurer {
         return  factory.getObject();
     }
 
+    @Bean
+    public ExecutionContextPromotionListener promotionListener(){
+        ExecutionContextPromotionListener promotionListener = new ExecutionContextPromotionListener();
+        String[] keys = {"s3SerializedComponents","s3Manifests"};
+        promotionListener.setKeys(keys);
+        return promotionListener;
+    }
 
     @Bean
-    public Job americanExpressFileImportJob() {
-        JobBuilder jobBuilder = jobs.get("americanExpressFileImportJob");
-        JobFlowBuilder flowBuilder =jobBuilder.flow(step0());
-        FlowJobBuilder end = flowBuilder.end();
-        return end.build();
+    public Job americanExpressFileImportJob(
+            @Qualifier("readFileWriteComponentstoS3") Step step1,
+            @Qualifier("generateManifesttoS3") Step step2,
+            @Qualifier("loadManifeststoRedshift") Step step3
+    ) {
+        return jobs.get("americanExpressFileImportJob")
+                .flow( step1 )
+                .next( step2 )
+                .end()
+                .build();
     }
 
     @Bean
@@ -213,32 +235,23 @@ public class AppConfig extends DefaultBatchConfigurer {
         return  steps.get("step0").tasklet(t).build();
     }
 
+    @Bean(name="readFileWriteComponentstoS3")
+    protected Step step1(
+            StepBuilderFactory stepBuilderFactory,
+            PlatformTransactionManager platformTransactionManager,
+            @Qualifier("AmexFileReader") ItemReader<FixedWidthDataFile> ir,
+            @Qualifier("AmexPoJoToSerializerProcessor") ItemProcessor<FixedWidthDataFile,List<SerializedComponent<String>>> ip,
+            @Qualifier("AmexS3ComponentWriter") ItemWriter<List<SerializedComponent<String>>> iw
+    ){
 
-
-    @Bean
-    protected Step step1(@Value("#{jobParameters[input.file.name]}") String resource, CsvMapper csvMapper, ObjectMapper jsonMapper){
-        return null;
+        StepBuilder builder = stepBuilderFactory.get("step1");
+        return builder.chunk(10)
+                .reader(ir)
+                .processor(ip) // <--------------------- ERROR
+                .writer(iw)
+                .transactionManager(platformTransactionManager)
+                .build();
     }
-
-
-
-
-    /**
-    @Bean
-    protected Step step2(){
-        // serialize file components to S3 data lake
-    }
-
-    @Bean
-    protected Step step3(){
-        // Combine components into redshift manifests
-    }
-
-    @Bean
-    protected Step step4(){
-        // Load manifests into redshift
-    }
-*/
 
 
 
@@ -253,14 +266,14 @@ public class AppConfig extends DefaultBatchConfigurer {
 
 
     // Amex File POJO does not have mappers set yet, so it won't serialize components properly
-    @Bean
+    @Bean(name="AmexFileReader")
     @StepScope
     public ItemReader amexReader(@Value("#{jobParameters[input.file.name]}") String resource) {
         AmexFileItemReader amexFileItemReader = new AmexFileItemReader();
         amexFileItemReader.setResource(new FileSystemResource(resource));
         return amexFileItemReader;
     }
-    @Bean
+    @Bean(name="AmexPoJoToSerializerProcessor")
     @StepScope
     public ItemProcessor amexPoJoToSerializerProcessor(CsvMapper csvMapper, ObjectMapper jsonMapper){
         AmexPoJoToSerializerProcessor amexPoJoToSerializerProcessor = new AmexPoJoToSerializerProcessor();
@@ -268,17 +281,8 @@ public class AppConfig extends DefaultBatchConfigurer {
         amexPoJoToSerializerProcessor.setObjectMapper(jsonMapper);
         return amexPoJoToSerializerProcessor; // every possible component is loaded choose what you want in the writer
     }
-
-    @Bean(name="redshiftComponentFilter")
-    public FixedWidthFileComponentFilter<FixedWidthDataFileComponent> redshiftComponentFilter(){
-        FixedWidthFileComponentFilter<FixedWidthDataFileComponent> filter = new FixedWidthFileComponentFilter<>();
-        if ( sinkAwsRedshiftComponentFilter != null && !sinkAwsRedshiftComponentFilter.isEmpty())
-            filter.setInclude(EnumSet.copyOf(Arrays.stream(sinkAwsRedshiftComponentFilter.split("\\s*,\\s*")).map(FixedWidthDataFileComponent::valueOf).collect(Collectors.toList())));
-        return filter;
-    }
-
-
-    @Bean
+    @Bean(name="AmexS3ComponentWriter")
+    @StepScope
     public ItemWriter amexS3ComponentWriter(AmazonS3 amazonS3){
         Set<FixedWidthDataFileComponent> include;
         if ( sinkAwsS3ComponentFilter != null && !sinkAwsS3ComponentFilter.isEmpty())
@@ -292,6 +296,17 @@ public class AppConfig extends DefaultBatchConfigurer {
         return writer;
 
     }
+
+    @Bean(name="redshiftComponentFilter")
+    public FixedWidthFileComponentFilter<FixedWidthDataFileComponent> redshiftComponentFilter(){
+        FixedWidthFileComponentFilter<FixedWidthDataFileComponent> filter = new FixedWidthFileComponentFilter<>();
+        if ( sinkAwsRedshiftComponentFilter != null && !sinkAwsRedshiftComponentFilter.isEmpty())
+            filter.setInclude(EnumSet.copyOf(Arrays.stream(sinkAwsRedshiftComponentFilter.split("\\s*,\\s*")).map(FixedWidthDataFileComponent::valueOf).collect(Collectors.toList())));
+        return filter;
+    }
+
+
+
     // Do not need this jobLauncher - we have a JobLaunchGateway triggered by SFTP file downloads
     /**
     @Bean
