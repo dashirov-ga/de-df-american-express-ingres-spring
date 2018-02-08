@@ -1,0 +1,57 @@
+# Snowplow Tracker
+monitoring.snowplow.url=
+monitoring.snowplow.namespace=
+monitoring.snowplow.application=
+
+# Amazon Redshift Data Warehouse Sink
+sink.aws.redshift.host=
+sink.aws.redshift.port=
+sink.aws.redshift.db_name=
+sink.aws.redshift.username=
+sink.aws.redshift.password=
+sink.aws.redshift.driver-class-name=
+sink.aws.redshift.initialize=
+sink.aws.redshift.schema=
+sink.aws.redshift.ssh-tunnel=
+sink.aws.redshift.ssh-tunnel-host=
+sink.aws.redshift.ssh-tunnel-port=
+sink.aws.redshift.ssh-tunnel-user=
+sink.aws.redshift.ssh-tunnel-private-key =
+sink.aws.redshift.ssh-tunnel-known-hosts =
+sink.aws.redshift.component-filter=
+
+# Spring Batch Data Sink
+job.repo.redshift.host=
+job.repo.redshift.port=
+job.repo.redshift.db_name=
+job.repo.redshift.username=
+job.repo.redshift.password=
+job.repo.redshift.driver-class-name=
+job.repo.redshift.initialize=
+job.repo.redshift.schema=
+job.repo.redshift.ssh-tunnel=
+job.repo.redshift.ssh-tunnel-host=
+job.repo.redshift.ssh-tunnel-port=
+job.repo.redshift.ssh-tunnel-user=
+job.repo.redshift.ssh-tunnel-private-key =
+job.repo.redshift.ssh-tunnel-known-hosts =
+
+# Amazon S3 Data Lake Sink
+sink.aws.s3.access_key_id=
+sink.aws.s3.secret_access_key=
+sink.aws.s3.bucket=
+sink.aws.s3.region=
+sink.aws.s3.component-filter=
+
+# American Express SFTP Data Source
+source.amex.sftp.remote_host =
+source.amex.sftp.remote_port =
+source.amex.sftp.username =
+source.amex.sftp.remote_directory =
+source.amex.sftp.local_directory =
+source.amex.sftp.filename_pattern =
+source.amex.sftp.known_hosts =
+source.amex.sftp.private-key-file =
+source.amex.sftp.allow-unknown-hosts=
+source.amex.sftp.private_key =
+source.amex.sftp.public_key=

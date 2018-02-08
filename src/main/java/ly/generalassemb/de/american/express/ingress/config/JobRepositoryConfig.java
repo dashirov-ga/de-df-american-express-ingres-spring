@@ -1,0 +1,92 @@
+package ly.generalassemb.de.american.express.ingress.config;
+
+import com.jcraft.jsch.JSchException;
+import com.pastdev.jsch.DefaultSessionFactory;
+import com.pastdev.jsch.tunnel.TunnelConnectionManager;
+import com.pastdev.jsch.tunnel.TunneledDataSourceWrapper;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.jdbc.datasource.SimpleDriverDataSource;
+import org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy;
+import org.springframework.stereotype.Component;
+
+import javax.sql.DataSource;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+
+@Component
+public class JobRepositoryConfig {
+
+    @Value("${job.repo.redshift.username}")
+    private String redshiftUser;
+
+    @Value("${job.repo.redshift.password}")
+    private String redshiftPass;
+
+    @Value("${job.repo.redshift.host}")
+    private String redshiftHost;
+
+    @Value("${job.repo.redshift.port}")
+    private String redshiftPort;
+
+    @Value("${job.repo.redshift.db_name}")
+    private String redshiftDatabaseName;
+
+    @Value("${job.repo.redshift.driver-class-name}")
+    private String redshiftDriverClass;
+
+
+    @Value("${job.repo.redshift.ssh-tunnel}")
+    private Boolean redshiftTunnel;
+
+    @Value("${job.repo.redshift.ssh-tunnel-host}")
+    private String redshiftTunnelHost;
+
+    @Value("${job.repo.redshift.ssh-tunnel-port}")
+    private String redshiftTunnelPort;
+
+    @Value("${job.repo.redshift.ssh-tunnel-user}")
+    private String redshiftTunnelUser;
+
+    @Value("${job.repo.redshift.ssh-tunnel-private-key}")
+    private String redshiftTunnelPrivateKey;
+
+    @Value("${job.repo.redshift.ssh-tunnel-known-hosts}")
+    private String redshiftTunnelKnownHosts;
+
+
+    @Bean(name = "jobRepositoryDataSource")
+    public DataSource dataSourceRedshift() throws JSchException, ClassNotFoundException, FileNotFoundException {
+        if (redshiftTunnel == null)
+            return null;
+        if (redshiftTunnel) {
+            String tunnelDefinition =
+                    String.format("%s@%s|127.0.0.1:%s:%s:%s",
+                            //System.getProperty("user.name"),
+                            redshiftTunnelUser,
+                            redshiftTunnelHost,
+                            redshiftPort,
+                            redshiftHost,
+                            redshiftPort);  //"davidashirov@localhost->david.ashirov@bastion1.de.ga.co|127.0.0.1:5439:dw.data.generalassemb.ly:5439";
+            SimpleDriverDataSource datasource = new SimpleDriverDataSource();
+            datasource.setDriver(new com.amazon.redshift.jdbc42.Driver());
+            datasource.setUrl("jdbc:redshift://localhost:" + redshiftPort + "/" + redshiftDatabaseName);
+            datasource.setUsername(redshiftUser);
+            datasource.setPassword(redshiftPass);
+            DefaultSessionFactory defaultSessionFactory = new DefaultSessionFactory();
+            defaultSessionFactory.setKnownHosts(new FileInputStream(new File(redshiftTunnelKnownHosts)));
+            defaultSessionFactory.setIdentityFromPrivateKey(redshiftTunnelPrivateKey);
+            return new TunneledDataSourceWrapper(new TunnelConnectionManager(defaultSessionFactory, tunnelDefinition), new TransactionAwareDataSourceProxy(datasource));
+        } else {
+            SimpleDriverDataSource datasource = new SimpleDriverDataSource();
+            datasource.setDriver(new org.postgresql.Driver());
+            datasource.setUrl("jdbc:postgresql://" + redshiftHost + ":" + redshiftPort + "/" + redshiftDatabaseName);
+            datasource.setUsername(redshiftUser);
+            datasource.setPassword(redshiftPass);
+            return new TransactionAwareDataSourceProxy(datasource);
+        }
+
+    }
+
+}
