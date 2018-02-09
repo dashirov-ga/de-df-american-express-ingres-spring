@@ -8,7 +8,9 @@ import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.PropertySource;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,14 +22,16 @@ import java.sql.ResultSet;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 
-@PropertySource("classpath:application.properties")
-@TestPropertySource("classpath:application.properties")
-@Transactional
-
+// @PropertySource("classpath:application.properties")
+@TestPropertySource("classpath:application.properties")                              //critical
+@Transactional                                                                       //critical
+@EnableAutoConfiguration                                                             //critical
+@ComponentScan("ly.generalassemb.de.american.express.ingress.config")                //critical
 public class JDBCConfigTest {
     private final Logger LOGGER = LoggerFactory.getLogger(JDBCConfigTest.class);
 
     @Autowired
+    @Qualifier("dwRedshiftDataSource")
     private DataSource redshiftDataSource;
 
     private Connection connection;
@@ -55,21 +59,4 @@ public class JDBCConfigTest {
             Assert.assertNull(e);
         }
     }
-    @Test
-    public void testDbUsername() {
-        try {
-            PreparedStatement ps = connection.prepareStatement("SELECT USER;");
-            ResultSet rs = ps.executeQuery();
-            rs.next();
-            String user = rs.getString(1);
-            rs.close();
-            Assert.assertEquals("david_ashirov", user);
-        } catch (Exception e){
-            Assert.assertNull(e);
-        }
-    }
-
-
-
-
 }

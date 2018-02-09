@@ -1,10 +1,7 @@
 package ly.generalassemb.de.american.express.ingress.config;
 
-import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.configuration.annotation.DefaultBatchConfigurer;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -36,10 +33,4 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @ComponentScan
 @SpringBootApplication
 public class AppConfig extends DefaultBatchConfigurer {
-
-    @Autowired
-            @Qualifier("jobRegistry")
-    JobRegistry  jobRegistry;
-
-
 }

@@ -6,6 +6,7 @@ import com.pastdev.jsch.tunnel.TunnelConnectionManager;
 import com.pastdev.jsch.tunnel.TunneledDataSourceWrapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy;
 import org.springframework.stereotype.Component;
@@ -18,72 +19,73 @@ import java.io.FileNotFoundException;
 @Component
 public class JobRepositoryConfig {
 
-    @Value("${job.repo.redshift.username}")
-    private String redshiftUser;
+    @Value("${job.repo.postgres.username}")
+    private String postgresUser;
 
-    @Value("${job.repo.redshift.password}")
-    private String redshiftPass;
+    @Value("${job.repo.postgres.password}")
+    private String postgresPass;
 
-    @Value("${job.repo.redshift.host}")
-    private String redshiftHost;
+    @Value("${job.repo.postgres.host}")
+    private String postgresHost;
 
-    @Value("${job.repo.redshift.port}")
-    private String redshiftPort;
+    @Value("${job.repo.postgres.port}")
+    private String postgresPort;
 
-    @Value("${job.repo.redshift.db_name}")
-    private String redshiftDatabaseName;
+    @Value("${job.repo.postgres.db_name}")
+    private String postgresDatabaseName;
 
-    @Value("${job.repo.redshift.driver-class-name}")
-    private String redshiftDriverClass;
+    @Value("${job.repo.postgres.driver-class-name}")
+    private String postgresDriverClass;
 
 
-    @Value("${job.repo.redshift.ssh-tunnel}")
-    private Boolean redshiftTunnel;
+    @Value("${job.repo.postgres.ssh-tunnel}")
+    private Boolean postgresTunnel;
 
-    @Value("${job.repo.redshift.ssh-tunnel-host}")
-    private String redshiftTunnelHost;
+    @Value("${job.repo.postgres.ssh-tunnel-host}")
+    private String postgresTunnelHost;
 
-    @Value("${job.repo.redshift.ssh-tunnel-port}")
-    private String redshiftTunnelPort;
+    @Value("${job.repo.postgres.ssh-tunnel-port}")
+    private String postgresTunnelPort;
 
-    @Value("${job.repo.redshift.ssh-tunnel-user}")
-    private String redshiftTunnelUser;
+    @Value("${job.repo.postgres.ssh-tunnel-user}")
+    private String postgresTunnelUser;
 
-    @Value("${job.repo.redshift.ssh-tunnel-private-key}")
-    private String redshiftTunnelPrivateKey;
+    @Value("${job.repo.postgres.ssh-tunnel-private-key}")
+    private String postgresTunnelPrivateKey;
 
-    @Value("${job.repo.redshift.ssh-tunnel-known-hosts}")
-    private String redshiftTunnelKnownHosts;
+    @Value("${job.repo.postgres.ssh-tunnel-known-hosts}")
+    private String postgresTunnelKnownHosts;
 
 
     @Bean(name = "jobRepositoryDataSource")
+    @Primary
     public DataSource dataSourceRedshift() throws JSchException, ClassNotFoundException, FileNotFoundException {
-        if (redshiftTunnel == null)
+        if (postgresTunnel == null)
             return null;
-        if (redshiftTunnel) {
+        if (postgresTunnel) {
             String tunnelDefinition =
                     String.format("%s@%s|127.0.0.1:%s:%s:%s",
                             //System.getProperty("user.name"),
-                            redshiftTunnelUser,
-                            redshiftTunnelHost,
-                            redshiftPort,
-                            redshiftHost,
-                            redshiftPort);  //"davidashirov@localhost->david.ashirov@bastion1.de.ga.co|127.0.0.1:5439:dw.data.generalassemb.ly:5439";
+                            postgresTunnelUser,
+                            postgresTunnelHost,
+                            postgresPort,
+                            postgresHost,
+                            postgresPort);  //"davidashirov@localhost->david.ashirov@bastion1.de.ga.co|127.0.0.1:5439:dw.data.generalassemb.ly:5439";
             SimpleDriverDataSource datasource = new SimpleDriverDataSource();
-            datasource.setDriver(new com.amazon.redshift.jdbc42.Driver());
-            datasource.setUrl("jdbc:redshift://localhost:" + redshiftPort + "/" + redshiftDatabaseName);
-            datasource.setUsername(redshiftUser);
-            datasource.setPassword(redshiftPass);
+            datasource.setDriver(new org.postgresql.Driver());
+            datasource.setUrl("jdbc:postgres://localhost:" + postgresPort + "/" + postgresDatabaseName);
+            datasource.setUsername(postgresUser);
+            datasource.setPassword(postgresPass);
             DefaultSessionFactory defaultSessionFactory = new DefaultSessionFactory();
-            defaultSessionFactory.setKnownHosts(new FileInputStream(new File(redshiftTunnelKnownHosts)));
-            defaultSessionFactory.setIdentityFromPrivateKey(redshiftTunnelPrivateKey);
+            defaultSessionFactory.setKnownHosts(new FileInputStream(new File(postgresTunnelKnownHosts)));
+            defaultSessionFactory.setIdentityFromPrivateKey(postgresTunnelPrivateKey);
             return new TunneledDataSourceWrapper(new TunnelConnectionManager(defaultSessionFactory, tunnelDefinition), new TransactionAwareDataSourceProxy(datasource));
         } else {
             SimpleDriverDataSource datasource = new SimpleDriverDataSource();
             datasource.setDriver(new org.postgresql.Driver());
-            datasource.setUrl("jdbc:postgresql://" + redshiftHost + ":" + redshiftPort + "/" + redshiftDatabaseName);
-            datasource.setUsername(redshiftUser);
-            datasource.setPassword(redshiftPass);
+            datasource.setUrl("jdbc:postgresql://" + postgresHost + ":" + postgresPort + "/" + postgresDatabaseName);
+            datasource.setUsername(postgresUser);
+            datasource.setPassword(postgresPass);
             return new TransactionAwareDataSourceProxy(datasource);
         }
 

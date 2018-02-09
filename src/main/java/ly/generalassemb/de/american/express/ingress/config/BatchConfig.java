@@ -12,6 +12,7 @@ import ly.generalassemb.de.american.express.ingress.model.file.writer.AmexS3Comp
 import ly.generalassemb.de.american.express.ingress.processor.AmexPoJoToSerializerProcessor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
@@ -39,6 +40,12 @@ import java.util.stream.Collectors;
 
 @Component
 public class BatchConfig {
+
+    @Autowired
+    JobRegistry jobRegistry;
+    public void setJobRegistry(JobRegistry jobRegistry) {
+        this.jobRegistry = jobRegistry;
+    }
 
     /**
      * Provided by CsvMapperConfig
