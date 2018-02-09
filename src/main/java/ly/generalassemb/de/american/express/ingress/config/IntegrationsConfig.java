@@ -143,7 +143,7 @@ public class IntegrationsConfig {
      */
 
     @Bean
-    @InboundChannelAdapter(channel = "sftpChannel", poller = @Poller(cron = "0/5 * * * * *", maxMessagesPerPoll ="1"))
+    @InboundChannelAdapter(channel = "sftpChannel", poller = @Poller(cron = "0/5 * * * * *", maxMessagesPerPoll ="1"), autoStartup = "false")
     public MessageSource<File> sftpMessageSource() throws UnsupportedEncodingException {
         SftpInboundFileSynchronizingMessageSource source =
                 new SftpInboundFileSynchronizingMessageSource(sftpInboundFileSynchronizer());
@@ -167,7 +167,10 @@ public class IntegrationsConfig {
         SimpleJobLauncher simpleJobLauncher = new SimpleJobLauncher();
         simpleJobLauncher.setJobRepository(jobRepository);
         simpleJobLauncher.setTaskExecutor(new SyncTaskExecutor());
-        return new JobLaunchingGateway(simpleJobLauncher);
+
+        JobLaunchingGateway gateway =  new JobLaunchingGateway(simpleJobLauncher);
+        gateway.setLoggingEnabled(true);
+        return gateway;
     }
 
     /**

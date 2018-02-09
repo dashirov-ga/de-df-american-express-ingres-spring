@@ -30,6 +30,7 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.util.Assert;
 
 import javax.sql.DataSource;
 import java.util.Arrays;
@@ -168,7 +169,7 @@ public class BatchConfig {
     // Amex File POJO does not have mappers set yet, so it won't serialize components properly
     @Bean(name = "AmexFileReader")
     @StepScope
-    public ItemReader<FixedWidthDataFile> amexReader(@Value("#{jobParameters['input.file.name']}") String resource) {
+    public AmexFileItemReader amexReader(@Value("#{jobParameters['input.file.name']}") String resource) {
         System.out.println("\n\n\n\t\t\t\t\t" + resource + "\n\n\n");
         AmexFileItemReader amexFileItemReader = new AmexFileItemReader();
         amexFileItemReader.setResource(new FileSystemResource(resource));
@@ -177,7 +178,7 @@ public class BatchConfig {
 
     @Bean(name = "AmexPoJoToSerializerProcessor")
     @StepScope
-    public ItemProcessor<FixedWidthDataFile,List<SerializedComponent<String>> >  amexPoJoToSerializerProcessor() {
+    public AmexPoJoToSerializerProcessor  amexPoJoToSerializerProcessor() {
         AmexPoJoToSerializerProcessor amexPoJoToSerializerProcessor = new AmexPoJoToSerializerProcessor();
         amexPoJoToSerializerProcessor.setCsvMapper(csvMapper);
         amexPoJoToSerializerProcessor.setObjectMapper(jsonMapper);
@@ -186,7 +187,7 @@ public class BatchConfig {
 
     @Bean(name = "AmexS3ComponentWriter")
     @StepScope
-    public ItemWriter<List<SerializedComponent<String>>>  amexS3ComponentWriter() {
+    public AmexS3ComponentWriter  amexS3ComponentWriter() {
         Set<FixedWidthDataFileComponent> include;
         if (sinkAwsS3ComponentFilter != null && !sinkAwsS3ComponentFilter.isEmpty())
             include = EnumSet.copyOf(Arrays.stream(sinkAwsS3ComponentFilter.split("\\s*,\\s*")).map(FixedWidthDataFileComponent::valueOf).collect(Collectors.toList()));
@@ -220,6 +221,8 @@ public class BatchConfig {
             @Qualifier("AmexS3ComponentWriter") ItemWriter<List<SerializedComponent<String>> >itemWriter,
             @Qualifier("ExecutionContextPromotionListener") ExecutionContextPromotionListener promotionListener
     ) {
+
+        Assert.notNull(promotionListener,"ExecutionContextPromotionListener must be set");
         return stepBuilderFactory.get("step1")
                 .<FixedWidthDataFile, List<SerializedComponent<String>>>chunk(1)
                 .reader(itemReader)

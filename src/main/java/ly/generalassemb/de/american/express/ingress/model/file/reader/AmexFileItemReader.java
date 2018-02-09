@@ -9,11 +9,13 @@ import org.springframework.batch.item.support.AbstractItemCountingItemStreamItem
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.core.io.Resource;
 import org.springframework.util.Assert;
+import org.springframework.util.ClassUtils;
 
 public class AmexFileItemReader
         extends AbstractItemCountingItemStreamItemReader<FixedWidthDataFile>
         implements ResourceAwareItemReaderItemStream<FixedWidthDataFile>, InitializingBean {
     private static final Log logger = LogFactory.getLog(AmexFileItemReader.class);
+
 
     private final static FixedWidthDataFileFactory factory = new FixedWidthDataFileFactory();
     private boolean noInput = false;
@@ -37,6 +39,10 @@ public class AmexFileItemReader
         FixedWidthDataFile dataFile = FixedWidthDataFileFactory.parse(resource.getFile());
         noInput = true;
         return  dataFile;
+    }
+
+    public AmexFileItemReader() {
+        setName(ClassUtils.getShortName(AmexFileItemReader.class));
     }
 
     @Override

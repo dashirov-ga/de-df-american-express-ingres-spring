@@ -7,7 +7,9 @@ import ly.generalassemb.de.american.express.ingress.model.FixedWidthDataFileComp
 import ly.generalassemb.de.american.express.ingress.model.file.ComponentSerializer.SerializedComponent;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.batch.core.StepExecution;
+import org.springframework.batch.core.annotation.AfterStep;
 import org.springframework.batch.core.annotation.BeforeStep;
+import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.item.ItemWriter;
 
 import java.io.ByteArrayInputStream;
@@ -20,6 +22,14 @@ import java.util.stream.Collectors;
 public class AmexS3ComponentWriter implements ItemWriter<List<SerializedComponent<String>>> {
 
     private StepExecution stepExecution;
+
+    public StepExecution getStepExecution() {
+        return stepExecution;
+    }
+
+    public void setStepExecution(StepExecution stepExecution) {
+        this.stepExecution = stepExecution;
+    }
 
     private static final DateFormat df = new SimpleDateFormat("yyyyMMdd");
 
@@ -96,18 +106,25 @@ public class AmexS3ComponentWriter implements ItemWriter<List<SerializedComponen
             // TODO: move to data lake, do not drop in the top level
             SerializedComponent<AmazonS3URI> component = new SerializedComponent<>();
             component.setType(entry.getType());
-            component.setParentId(component.getParentId());
-            component.setParentKind(component.getParentKind());
+            component.setParentId(entry.getParentId());
+            component.setParentKind(entry.getParentKind());
             component.setPayload(new AmazonS3URI("s3://" + req.getBucketName() + "/" + req.getKey()));
             out.add(component);
         }
-        // ExecutionContext stepContext = this.stepExecution.getExecutionContext();
-        // stepContext.put("s3SerializedComponents", out);
+
+         ExecutionContext stepContext = this.stepExecution.getExecutionContext();
+         stepContext.put("s3SerializedComponents", out);
     }
     @BeforeStep
     public void saveStepExecution(StepExecution stepExecution) {
+        System.out.println("STEP EXECUTION ABOUT TO BEGIN");
         System.out.println("loading step execution context");
         this.stepExecution = stepExecution;
+    }
+    @AfterStep
+    public void afterStepExecution(StepExecution stepExecution) {
+        System.out.println("STEP EXECUTION COMPLETED");
+
     }
 }
 
