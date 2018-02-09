@@ -7,10 +7,20 @@ import ly.generalassemb.de.american.express.ingress.model.file.*;
 import ly.generalassemb.de.american.express.ingress.model.file.ComponentSerializer.*;
 import org.springframework.batch.item.ItemProcessor;
 
+import javax.validation.constraints.NotNull;
 import java.util.List;
 
+/**
+ *  Processor takes a parsed Amex object and serializes various components of the object to a list of SerializedComponent
+ *  Effectively creating multiple <O> items for each <I> item processed
+ *
+ *  In order to properly process the objects, processor requires custom csv and json object mappers configured to handle LocalDate and LocalTime data types
+ */
 public class AmexPoJoToSerializerProcessor implements ItemProcessor<FixedWidthDataFile,List<SerializedComponent<String>> > {
+    @NotNull
     private CsvMapper csvMapper;
+
+    @NotNull
     private ObjectMapper objectMapper;
 
     public CsvMapper getCsvMapper() {

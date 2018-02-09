@@ -8,7 +8,6 @@ import ly.generalassemb.de.american.express.ingress.model.file.ComponentSerializ
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.annotation.BeforeStep;
-import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.item.ItemWriter;
 
 import java.io.ByteArrayInputStream;
@@ -18,7 +17,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class AmexS3ComponentWriter implements ItemWriter<SerializedComponent<String>> {
+public class AmexS3ComponentWriter implements ItemWriter<List<SerializedComponent<String>>> {
 
     private StepExecution stepExecution;
 
@@ -55,10 +54,10 @@ public class AmexS3ComponentWriter implements ItemWriter<SerializedComponent<Str
     }
 
     @Override
-    public void write(List<? extends SerializedComponent<String>> items) throws Exception {
+    public void write(List<? extends List<SerializedComponent<String>>> items) throws Exception {
         List<SerializedComponent<AmazonS3URI>> out = new ArrayList<>();
         // Apply filters
-        List<SerializedComponent<String>> wantedComponents = items.stream().filter(item -> includeFilter.contains(item.getType())).collect(Collectors.toList());
+        List<SerializedComponent<String>> wantedComponents = items.stream().flatMap(Collection::stream).filter(item -> includeFilter.contains(item.getType())).collect(Collectors.toList());
         // iterate through the list of desired items
         for (SerializedComponent<String> entry : wantedComponents) {
 
@@ -102,11 +101,12 @@ public class AmexS3ComponentWriter implements ItemWriter<SerializedComponent<Str
             component.setPayload(new AmazonS3URI("s3://" + req.getBucketName() + "/" + req.getKey()));
             out.add(component);
         }
-        ExecutionContext stepContext = this.stepExecution.getExecutionContext();
-        stepContext.put("s3SerializedComponents", out);
+        // ExecutionContext stepContext = this.stepExecution.getExecutionContext();
+        // stepContext.put("s3SerializedComponents", out);
     }
     @BeforeStep
     public void saveStepExecution(StepExecution stepExecution) {
+        System.out.println("loading step execution context");
         this.stepExecution = stepExecution;
     }
 }
