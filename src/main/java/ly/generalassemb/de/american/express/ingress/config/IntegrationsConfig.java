@@ -18,7 +18,6 @@ import org.springframework.integration.annotation.MessagingGateway;
 import org.springframework.integration.annotation.Poller;
 import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.integration.channel.DirectChannel;
-import org.springframework.integration.core.MessageSource;
 import org.springframework.integration.dsl.IntegrationFlow;
 import org.springframework.integration.dsl.IntegrationFlows;
 import org.springframework.integration.dsl.core.Pollers;
@@ -144,7 +143,7 @@ public class IntegrationsConfig {
 
     @Bean
     @InboundChannelAdapter(channel = "sftpChannel", poller = @Poller(cron = "0/5 * * * * *", maxMessagesPerPoll ="1"), autoStartup = "false")
-    public MessageSource<File> sftpMessageSource() throws UnsupportedEncodingException {
+    public SftpInboundFileSynchronizingMessageSource sftpMessageSource() throws UnsupportedEncodingException {
         SftpInboundFileSynchronizingMessageSource source =
                 new SftpInboundFileSynchronizingMessageSource(sftpInboundFileSynchronizer());
         source.setLocalDirectory(new File(sftpLocalDirectory));

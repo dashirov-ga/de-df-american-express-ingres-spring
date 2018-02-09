@@ -1,9 +1,6 @@
 package ly.generalassemb.de.american.express.ingress.config;
 
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,6 +43,7 @@ public class JDBCConfigTest {
         LOGGER.debug("Closing db connection");
         connection.close();
     }
+    @Ignore
     @Test
     public void testConnection() {
         try {

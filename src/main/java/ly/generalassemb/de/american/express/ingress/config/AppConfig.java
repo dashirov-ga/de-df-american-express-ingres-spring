@@ -2,7 +2,7 @@ package ly.generalassemb.de.american.express.ingress.config;
 
 import org.springframework.batch.core.configuration.annotation.DefaultBatchConfigurer;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.integration.config.EnableIntegration;
@@ -31,6 +31,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EnableIntegration
 @EnableIntegrationManagement
 @ComponentScan
-@SpringBootApplication
+@SpringBootConfiguration
 public class AppConfig extends DefaultBatchConfigurer {
+
 }

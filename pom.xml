@@ -7,6 +7,11 @@
     <groupId>ly.generalassemb.de.datafeeds</groupId>
     <artifactId>de-df-american-express-ingres-spring</artifactId>
     <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    <name>df-american-express-ingres</name>
+    <description>Data Feed: American Express; Loads EPAPE, EPTRN, CBNOT, EMCBK, EMINQ fixed width flat files into S3
+        Data Lake and Redshift Data Warehouse
+    </description>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
@@ -19,10 +24,13 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>1.8</java.version>
+
         <spring.boot.version>1.5.10.RELEASE</spring.boot.version>
+        <spring.batch.version>4.0.0.RELEASE</spring.batch.version>
         <aws.java.sdk.version>1.11.256</aws.java.sdk.version>
         <aws.redshift.jdbc.version>1.2.10.1009</aws.redshift.jdbc.version>
-        <jackson.version>2.9.3</jackson.version>
+        <jackson.version>2.9.4</jackson.version>
+
         <start-class>ly.generalassemb.de.american.express.ingress.FeedHandler</start-class>
     </properties>
 
@@ -40,7 +48,7 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
-            <version>1.5.10.RELEASE</version>
+            <version>${spring.boot.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -50,12 +58,12 @@
         <dependency>
             <groupId>org.springframework.batch</groupId>
             <artifactId>spring-batch-core</artifactId>
-            <version>4.0.0.RELEASE</version>
+            <version>${spring.batch.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.batch</groupId>
             <artifactId>spring-batch-integration</artifactId>
-            <version>4.0.0.RELEASE</version>
+            <version>${spring.batch.version}</version>
         </dependency>
 
         <dependency>
@@ -212,6 +220,14 @@
             <version>5.0.0</version>
         </dependency>
 
+        <!-- https://mvnrepository.com/artifact/com.newrelic.agent.java/newrelic-agent -->
+        <dependency>
+            <groupId>com.newrelic.agent.java</groupId>
+            <artifactId>newrelic-agent</artifactId>
+            <version>3.47.0</version>
+        </dependency>
+
+
     </dependencies>
     <repositories>
 
@@ -256,11 +272,61 @@
         </resources>
 
         <plugins>
+
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>2.9</version>
+                <executions>
+                    <execution>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>unpack-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <includeArtifactIds>newrelic-agent</includeArtifactIds>
+                            <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+<!--
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-jar-plugin</artifactId>
+                            <version>3.0.2</version>
+                            <configuration>
+                                <archive>
+                                    <manifestEntries>
+                                        <Premain-Class>com.newrelic.bootstrap.BootstrapAgent</Premain-Class>
+                                        <Main-Class>ly.generalassemb.de.american.express.ingress.FeedHandler</Main-Class>
+                                        <Can-Redefine-Classes>true</Can-Redefine-Classes>
+                                        <Can-Retransform-Classes>true</Can-Retransform-Classes>
+                                    </manifestEntries>
+                                </archive>
+                            </configuration>
+                        </plugin>
+-->
+
+
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>${spring.boot.version}</version>
+                <configuration>
+                    <mainClass>ly.generalassemb.de.american.express.ingress.FeedHandler</mainClass>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
+
+
         </plugins>
     </build>
 </project>

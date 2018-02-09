@@ -76,3 +76,12 @@ fabric.properties
 sftp-inbound/
 src/main/java/graveyard/
 
+
+
+.idea/vcs.xml
+log-0001.txt
+log-0002.txt
+src/main/resources-filtered/
+src/main/resources/amex_production_id
+src/main/resources/known_hosts
+src/test/resources-filtered/

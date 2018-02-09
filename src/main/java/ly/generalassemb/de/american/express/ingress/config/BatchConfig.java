@@ -2,22 +2,28 @@ package ly.generalassemb.de.american.express.ingress.config;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.Bucket;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import ly.generalassemb.de.american.express.ingress.model.FixedWidthDataFile;
 import ly.generalassemb.de.american.express.ingress.model.FixedWidthDataFileComponent;
 import ly.generalassemb.de.american.express.ingress.model.file.ComponentSerializer.SerializedComponent;
 import ly.generalassemb.de.american.express.ingress.model.file.reader.AmexFileItemReader;
 import ly.generalassemb.de.american.express.ingress.model.file.writer.AmexS3ComponentWriter;
 import ly.generalassemb.de.american.express.ingress.processor.AmexPoJoToSerializerProcessor;
+import ly.generalassemb.de.databind.AmazonS3URIModule;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
-import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
+import org.springframework.batch.core.explore.JobExplorer;
+import org.springframework.batch.core.explore.support.JobExplorerFactoryBean;
 import org.springframework.batch.core.listener.ExecutionContextPromotionListener;
 import org.springframework.batch.core.repository.JobRepository;
+import org.springframework.batch.core.repository.dao.Jackson2ExecutionContextStringSerializer;
 import org.springframework.batch.core.repository.support.JobRepositoryFactoryBean;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
@@ -26,6 +32,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.stereotype.Component;
@@ -41,75 +48,6 @@ import java.util.stream.Collectors;
 
 @Component
 public class BatchConfig {
-
-    @Autowired
-    JobRegistry jobRegistry;
-    public void setJobRegistry(JobRegistry jobRegistry) {
-        this.jobRegistry = jobRegistry;
-    }
-
-    /**
-     * Provided by CsvMapperConfig
-     */
-    @Autowired
-    CsvMapper csvMapper;
-
-    public void setCsvMapper(CsvMapper csvMapper) {
-        this.csvMapper = csvMapper;
-    }
-
-    /**
-     * Provided by JsonMapperConfig
-     */    @Autowired
-    ObjectMapper jsonMapper;
-
-    public void setJsonMapper(ObjectMapper jsonMapper) {
-        this.jsonMapper = jsonMapper;
-    }
-
-    /**
-     * Provided by JobRepositoryConfig
-     */
-    @Autowired
-    @Qualifier("jobRepositoryDataSource")
-    private DataSource jobRepositoryDataSource;
-
-    public void setJobRepositoryDataSource(DataSource jobRepositoryDataSource) {
-        this.jobRepositoryDataSource = jobRepositoryDataSource;
-    }
-
-    /**
-     * Provided by Batch Runtime
-     */
-    @Autowired
-    private  JobBuilderFactory jobs;
-
-    public void setJobs(JobBuilderFactory jobs) {
-        this.jobs = jobs;
-    }
-
-    /**
-     * Provided by Batch Runtime
-     */
-    @Autowired
-    private  StepBuilderFactory steps;
-
-    public void setSteps(StepBuilderFactory steps) {
-        this.steps = steps;
-    }
-
-
-
-
-    /**
-     * Provided by S3Config Component
-     */
-    @Autowired
-    private AmazonS3 amazonS3;
-
-    public void setAmazonS3(AmazonS3 amazonS3) {
-        this.amazonS3 = amazonS3;
-    }
 
     @Value("${sink.aws.s3.component-filter:#{null}}")
     private String sinkAwsS3ComponentFilter;
@@ -144,19 +82,7 @@ public class BatchConfig {
         this.s3Bucket = s3Bucket;
     }
 
-    @Bean
-    public PlatformTransactionManager transactionManager(@Qualifier("jobRepositoryDataSource") DataSource ds) {
-        return new DataSourceTransactionManager(ds);
-    }
 
-    @Bean(name="jobRepository")
-    public JobRepository jobRepository() throws Exception {
-        JobRepositoryFactoryBean factory = new JobRepositoryFactoryBean();
-        factory.setDataSource(jobRepositoryDataSource);
-        factory.setTransactionManager(transactionManager(jobRepositoryDataSource));
-        factory.afterPropertiesSet();
-        return factory.getObject();
-    }
 
     @Bean(name = "ExecutionContextPromotionListener")
     public ExecutionContextPromotionListener promotionListener() {
@@ -170,7 +96,6 @@ public class BatchConfig {
     @Bean(name = "AmexFileReader")
     @StepScope
     public AmexFileItemReader amexReader(@Value("#{jobParameters['input.file.name']}") String resource) {
-        System.out.println("\n\n\n\t\t\t\t\t" + resource + "\n\n\n");
         AmexFileItemReader amexFileItemReader = new AmexFileItemReader();
         amexFileItemReader.setResource(new FileSystemResource(resource));
         return amexFileItemReader;
@@ -178,7 +103,8 @@ public class BatchConfig {
 
     @Bean(name = "AmexPoJoToSerializerProcessor")
     @StepScope
-    public AmexPoJoToSerializerProcessor  amexPoJoToSerializerProcessor() {
+    @Autowired
+    public AmexPoJoToSerializerProcessor  amexPoJoToSerializerProcessor(CsvMapper csvMapper, ObjectMapper jsonMapper) {
         AmexPoJoToSerializerProcessor amexPoJoToSerializerProcessor = new AmexPoJoToSerializerProcessor();
         amexPoJoToSerializerProcessor.setCsvMapper(csvMapper);
         amexPoJoToSerializerProcessor.setObjectMapper(jsonMapper);
@@ -187,7 +113,8 @@ public class BatchConfig {
 
     @Bean(name = "AmexS3ComponentWriter")
     @StepScope
-    public AmexS3ComponentWriter  amexS3ComponentWriter() {
+    @Autowired
+    public AmexS3ComponentWriter  amexS3ComponentWriter(AmazonS3 amazonS3) {
         Set<FixedWidthDataFileComponent> include;
         if (sinkAwsS3ComponentFilter != null && !sinkAwsS3ComponentFilter.isEmpty())
             include = EnumSet.copyOf(Arrays.stream(sinkAwsS3ComponentFilter.split("\\s*,\\s*")).map(FixedWidthDataFileComponent::valueOf).collect(Collectors.toList()));
@@ -212,6 +139,7 @@ public class BatchConfig {
      *    3.1 Apply a filter to selectively upload components
      *    3.2 Store the locations of the uploaded components for subsequent steps to locate and make use of
      */
+    @Autowired
     @Bean(name = "readFileWriteComponentstoS3")
     protected Step step1(
             StepBuilderFactory stepBuilderFactory,
@@ -233,16 +161,82 @@ public class BatchConfig {
                 .build();
     }
 
+    //@JobScope
+    @Autowired
     @Bean(name = "americanExpressFileImportJob")
     public  Job americanExpressFileImportJob(
-            @Qualifier("readFileWriteComponentstoS3") Step step1
+            JobBuilderFactory jobBuilderFactory,@Qualifier("readFileWriteComponentstoS3") Step step1
     ) {
-        return jobs.get("americanExpressFileImportJob")
+        return jobBuilderFactory.get("americanExpressFileImportJob")
                 .flow(step1)
                 .end()
                 .build();
     }
 
+    /**
+     * Need a custom serializer to take care of LocalDate LocalDateTime and AmazonS3URI
+     * This should be used in both batch and application contexts, no competing, alternate ObjectMapper is needed
+     * @return
+     */
+    @Primary
+    @Bean(name="americanExpressJsonMapper")
+    public ObjectMapper defaultObjectMapper(){
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.configure(MapperFeature.DEFAULT_VIEW_INCLUSION, false);
+        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
+        objectMapper.enableDefaultTyping();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.registerModule(new AmazonS3URIModule());
 
+        return objectMapper;
+    }
+
+    @Autowired
+    @Bean
+    public Jackson2ExecutionContextStringSerializer serializer(ObjectMapper objectMapper) {
+        Jackson2ExecutionContextStringSerializer serializer = new Jackson2ExecutionContextStringSerializer();
+        // replace object mapper with one that is capable of com.amazonaws.services.s3.AmazonS3URI serialization/de-serialization
+        System.out.println("Setting custom objectMapper");
+        serializer.setObjectMapper(objectMapper);
+        return serializer;
+    }
+
+    @Autowired
+    @Bean
+    public DataSourceTransactionManager transactionManager(DataSource dataSource) {
+        return new DataSourceTransactionManager(dataSource);
+    }
+
+
+    @Bean
+    @Autowired
+    public JobRepository jobRepository(DataSource dataSource,
+                                       DataSourceTransactionManager txManager,
+                                       Jackson2ExecutionContextStringSerializer serializer
+    ) throws Exception
+    {
+        JobRepositoryFactoryBean fac = new JobRepositoryFactoryBean();
+        fac.setDataSource( dataSource );
+        fac.setTransactionManager( txManager );
+        fac.setSerializer( serializer );
+        fac.afterPropertiesSet();
+        return fac.getObject();
+    }
+
+
+    @Bean
+    @Autowired
+    public JobExplorer jobExplorer(
+            // @Qualifier("jobRepositoryDataSource")
+            DataSource dataSource ,
+            Jackson2ExecutionContextStringSerializer serializer ) throws Exception
+    {
+
+        JobExplorerFactoryBean fac = new JobExplorerFactoryBean();
+        fac.setDataSource( dataSource );
+        fac.setSerializer( serializer );
+        fac.afterPropertiesSet();
+        return fac.getObject();
+    }
 
 }
