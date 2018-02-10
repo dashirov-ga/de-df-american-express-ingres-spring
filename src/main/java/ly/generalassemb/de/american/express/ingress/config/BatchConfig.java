@@ -83,6 +83,54 @@ public class BatchConfig {
     }
 
 
+    @Autowired
+    @Bean
+    public Jackson2ExecutionContextStringSerializer serializer(ObjectMapper objectMapper) {
+        Jackson2ExecutionContextStringSerializer serializer = new Jackson2ExecutionContextStringSerializer();
+        // replace object mapper with one that is capable of com.amazonaws.services.s3.AmazonS3URI serialization/de-serialization
+        System.out.println("Setting custom objectMapper");
+        serializer.setObjectMapper(objectMapper);
+        return serializer;
+    }
+
+    @Autowired
+    @Bean
+    public DataSourceTransactionManager transactionManager(DataSource dataSource) {
+        return new DataSourceTransactionManager(dataSource);
+    }
+
+
+    // need a custom JobRepository to replace ObjectMapper with a smarter one
+    @Bean
+    @Autowired
+    public JobRepository jobRepository(DataSource dataSource,
+                                       DataSourceTransactionManager txManager,
+                                       Jackson2ExecutionContextStringSerializer serializer
+    ) throws Exception
+    {
+        JobRepositoryFactoryBean fac = new JobRepositoryFactoryBean();
+        fac.setDataSource( dataSource );
+        fac.setTransactionManager( txManager );
+        fac.setSerializer( serializer );
+        fac.afterPropertiesSet();
+        return fac.getObject();
+    }
+
+
+    // need a custom JobExplorer to replace ObjectMapper with a smarter one
+    @Bean
+    @Autowired
+    public JobExplorer jobExplorer(
+            DataSource dataSource ,
+            Jackson2ExecutionContextStringSerializer serializer ) throws Exception
+    {
+
+        JobExplorerFactoryBean fac = new JobExplorerFactoryBean();
+        fac.setDataSource( dataSource );
+        fac.setSerializer( serializer );
+        fac.afterPropertiesSet();
+        return fac.getObject();
+    }
 
     @Bean(name = "ExecutionContextPromotionListener")
     public ExecutionContextPromotionListener promotionListener() {
@@ -124,8 +172,8 @@ public class BatchConfig {
         writer.setAmazonS3(amazonS3);
         writer.setIncludeFilter(include);
         writer.setS3Bucket(s3Bucket);
-        return writer;
 
+        return writer;
     }
 
     /**
@@ -191,52 +239,5 @@ public class BatchConfig {
         return objectMapper;
     }
 
-    @Autowired
-    @Bean
-    public Jackson2ExecutionContextStringSerializer serializer(ObjectMapper objectMapper) {
-        Jackson2ExecutionContextStringSerializer serializer = new Jackson2ExecutionContextStringSerializer();
-        // replace object mapper with one that is capable of com.amazonaws.services.s3.AmazonS3URI serialization/de-serialization
-        System.out.println("Setting custom objectMapper");
-        serializer.setObjectMapper(objectMapper);
-        return serializer;
-    }
-
-    @Autowired
-    @Bean
-    public DataSourceTransactionManager transactionManager(DataSource dataSource) {
-        return new DataSourceTransactionManager(dataSource);
-    }
-
-
-    @Bean
-    @Autowired
-    public JobRepository jobRepository(DataSource dataSource,
-                                       DataSourceTransactionManager txManager,
-                                       Jackson2ExecutionContextStringSerializer serializer
-    ) throws Exception
-    {
-        JobRepositoryFactoryBean fac = new JobRepositoryFactoryBean();
-        fac.setDataSource( dataSource );
-        fac.setTransactionManager( txManager );
-        fac.setSerializer( serializer );
-        fac.afterPropertiesSet();
-        return fac.getObject();
-    }
-
-
-    @Bean
-    @Autowired
-    public JobExplorer jobExplorer(
-            // @Qualifier("jobRepositoryDataSource")
-            DataSource dataSource ,
-            Jackson2ExecutionContextStringSerializer serializer ) throws Exception
-    {
-
-        JobExplorerFactoryBean fac = new JobExplorerFactoryBean();
-        fac.setDataSource( dataSource );
-        fac.setSerializer( serializer );
-        fac.afterPropertiesSet();
-        return fac.getObject();
-    }
 
 }
