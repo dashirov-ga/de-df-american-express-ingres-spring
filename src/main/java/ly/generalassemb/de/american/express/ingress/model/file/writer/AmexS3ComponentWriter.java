@@ -117,14 +117,10 @@ public class AmexS3ComponentWriter implements ItemWriter<List<SerializedComponen
     }
     @BeforeStep
     public void saveStepExecution(StepExecution stepExecution) {
-        System.out.println("STEP EXECUTION ABOUT TO BEGIN");
-        System.out.println("loading step execution context");
         this.stepExecution = stepExecution;
     }
     @AfterStep
     public void afterStepExecution(StepExecution stepExecution) {
-        System.out.println("STEP EXECUTION COMPLETED");
-
     }
 }
 

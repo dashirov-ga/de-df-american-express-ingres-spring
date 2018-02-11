@@ -1,6 +1,7 @@
 package ly.generalassemb.de.american.express.ingress.config;
 
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3URI;
 import com.amazonaws.services.s3.model.Bucket;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
@@ -11,6 +12,7 @@ import ly.generalassemb.de.american.express.ingress.model.FixedWidthDataFile;
 import ly.generalassemb.de.american.express.ingress.model.FixedWidthDataFileComponent;
 import ly.generalassemb.de.american.express.ingress.model.file.ComponentSerializer.SerializedComponent;
 import ly.generalassemb.de.american.express.ingress.model.file.reader.AmexFileItemReader;
+import ly.generalassemb.de.american.express.ingress.model.file.writer.AmexRedshiftWriter;
 import ly.generalassemb.de.american.express.ingress.model.file.writer.AmexS3ComponentWriter;
 import ly.generalassemb.de.american.express.ingress.processor.AmexPoJoToSerializerProcessor;
 import ly.generalassemb.de.databind.AmazonS3URIModule;
@@ -58,6 +60,20 @@ public class BatchConfig {
     @Value("${sink.aws.s3.bucket}")
     private Bucket s3Bucket;
 
+    @Value("${sink.asw.redshift.namespace}")
+    private String redshiftSchemaName;
+
+    public String getRedshiftSchemaName() {
+        return redshiftSchemaName;
+    }
+
+    public void setRedshiftSchemaName(String redshiftSchemaName) {
+        this.redshiftSchemaName = redshiftSchemaName;
+    }
+
+    @Value("${sink.aws.redshift.credentials}")
+    private String redshiftCopyCredentials;
+
     public String getSinkAwsS3ComponentFilter() {
         return sinkAwsS3ComponentFilter;
     }
@@ -82,6 +98,23 @@ public class BatchConfig {
         this.s3Bucket = s3Bucket;
     }
 
+    /**
+     * Need a custom serializer to take care of LocalDate LocalDateTime and AmazonS3URI
+     * This should be used in both batch and application contexts, no competing, alternate ObjectMapper is needed
+     * @return
+     */
+    @Primary
+    @Bean(name="americanExpressJsonMapper")
+    public ObjectMapper defaultObjectMapper(){
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.configure(MapperFeature.DEFAULT_VIEW_INCLUSION, false);
+        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
+        objectMapper.enableDefaultTyping();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.registerModule(new AmazonS3URIModule());
+
+        return objectMapper;
+    }
 
     @Autowired
     @Bean
@@ -113,6 +146,7 @@ public class BatchConfig {
         fac.setTransactionManager( txManager );
         fac.setSerializer( serializer );
         fac.afterPropertiesSet();
+
         return fac.getObject();
     }
 
@@ -187,6 +221,7 @@ public class BatchConfig {
      *    3.1 Apply a filter to selectively upload components
      *    3.2 Store the locations of the uploaded components for subsequent steps to locate and make use of
      */
+    @StepScope
     @Autowired
     @Bean(name = "readFileWriteComponentstoS3")
     protected Step step1(
@@ -206,6 +241,40 @@ public class BatchConfig {
                 .writer(itemWriter)
                 .transactionManager(platformTransactionManager)
                 .listener(promotionListener)
+                .allowStartIfComplete(true)
+                .build();
+    }
+    @Bean(name = "AmexRedshiftWriter")
+    @StepScope
+    @Autowired
+    public AmexRedshiftWriter  amexRedshiftWriter(
+            @Qualifier("dwRedshiftDataSource") DataSource dataSource
+    ) {
+        Set<FixedWidthDataFileComponent> include;
+        if (sinkAwsRedshiftComponentFilter != null && !sinkAwsRedshiftComponentFilter.isEmpty())
+            include = EnumSet.copyOf(Arrays.stream(sinkAwsRedshiftComponentFilter.split("\\s*,\\s*")).map(FixedWidthDataFileComponent::valueOf).collect(Collectors.toList()));
+        else
+            include = EnumSet.copyOf(Arrays.asList(FixedWidthDataFileComponent.values()));
+        AmexRedshiftWriter writer = new AmexRedshiftWriter();
+        writer.setIncludeFilter(include);
+        writer.setRedshiftS3AccessCredentials(redshiftCopyCredentials);
+        writer.setDataSource(dataSource);
+        writer.setSchemaName(getRedshiftSchemaName());
+        return writer;
+    }
+
+    @StepScope
+    @Autowired
+    @Bean(name="loadComponentURLtoRedshift")
+    protected Step Step2(StepBuilderFactory stepBuilderFactory,
+                         PlatformTransactionManager platformTransactionManager,
+                        @Qualifier("AmexRedshiftWriter") AmexRedshiftWriter writer ){
+        return stepBuilderFactory
+                .get("step2")
+                .<Object,SerializedComponent<AmazonS3URI>>chunk(10)
+                .writer(writer)
+                .transactionManager(platformTransactionManager)
+                .allowStartIfComplete(true)
                 .build();
     }
 
@@ -221,23 +290,7 @@ public class BatchConfig {
                 .build();
     }
 
-    /**
-     * Need a custom serializer to take care of LocalDate LocalDateTime and AmazonS3URI
-     * This should be used in both batch and application contexts, no competing, alternate ObjectMapper is needed
-     * @return
-     */
-    @Primary
-    @Bean(name="americanExpressJsonMapper")
-    public ObjectMapper defaultObjectMapper(){
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.configure(MapperFeature.DEFAULT_VIEW_INCLUSION, false);
-        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
-        objectMapper.enableDefaultTyping();
-        objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.registerModule(new AmazonS3URIModule());
 
-        return objectMapper;
-    }
 
 
 }
