@@ -3,7 +3,6 @@ package ly.generalassemb.de.american.express.ingress.config;
 import com.jcraft.jsch.ChannelSftp;
 import ly.generalassemb.de.american.express.ingress.transformer.FileMessageToJobRequest;
 import org.springframework.batch.core.Job;
-import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.launch.support.SimpleJobLauncher;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.integration.launch.JobLaunchingGateway;
@@ -14,9 +13,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.core.io.Resource;
 import org.springframework.core.task.SyncTaskExecutor;
 import org.springframework.integration.annotation.InboundChannelAdapter;
-import org.springframework.integration.annotation.MessagingGateway;
 import org.springframework.integration.annotation.Poller;
-import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.integration.channel.DirectChannel;
 import org.springframework.integration.dsl.IntegrationFlow;
 import org.springframework.integration.dsl.IntegrationFlows;
@@ -197,7 +194,7 @@ public class IntegrationsConfig {
     }
 
 
-
+/*
     @Bean
     @ServiceActivator(inputChannel = "stepExecutionsChannel")
     public LoggingHandler loggingHandler() {
@@ -209,7 +206,7 @@ public class IntegrationsConfig {
     @MessagingGateway(name = "notificationExecutionsListener", defaultRequestChannel = "stepExecutionsChannel")
     public interface NotificationExecutionListener extends StepExecutionListener {}
 
-
+*/
 
 
 }

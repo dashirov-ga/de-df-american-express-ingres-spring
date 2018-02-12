@@ -12,9 +12,8 @@ import ly.generalassemb.de.american.express.ingress.model.FixedWidthDataFile;
 import ly.generalassemb.de.american.express.ingress.model.FixedWidthDataFileComponent;
 import ly.generalassemb.de.american.express.ingress.model.file.ComponentSerializer.SerializedComponent;
 import ly.generalassemb.de.american.express.ingress.model.file.reader.AmexFileItemReader;
+import ly.generalassemb.de.american.express.ingress.model.file.writer.AmexFileProcessor;
 import ly.generalassemb.de.american.express.ingress.model.file.writer.AmexRedshiftWriter;
-import ly.generalassemb.de.american.express.ingress.model.file.writer.AmexS3ComponentWriter;
-import ly.generalassemb.de.american.express.ingress.processor.AmexPoJoToSerializerProcessor;
 import ly.generalassemb.de.databind.AmazonS3URIModule;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -27,9 +26,6 @@ import org.springframework.batch.core.listener.ExecutionContextPromotionListener
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.repository.dao.Jackson2ExecutionContextStringSerializer;
 import org.springframework.batch.core.repository.support.JobRepositoryFactoryBean;
-import org.springframework.batch.item.ItemProcessor;
-import org.springframework.batch.item.ItemReader;
-import org.springframework.batch.item.ItemWriter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -175,7 +171,7 @@ public class BatchConfig {
     }
 
     // Amex File POJO does not have mappers set yet, so it won't serialize components properly
-    @Bean(name = "AmexFileReader")
+    @Bean(name = "AmexFileItemReader")
     @StepScope
     public AmexFileItemReader amexReader(@Value("#{jobParameters['input.file.name']}") String resource) {
         AmexFileItemReader amexFileItemReader = new AmexFileItemReader();
@@ -183,31 +179,42 @@ public class BatchConfig {
         return amexFileItemReader;
     }
 
-    @Bean(name = "AmexPoJoToSerializerProcessor")
+    @Bean(name = "AmexFileProcessor")
     @StepScope
     @Autowired
-    public AmexPoJoToSerializerProcessor  amexPoJoToSerializerProcessor(CsvMapper csvMapper, ObjectMapper jsonMapper) {
-        AmexPoJoToSerializerProcessor amexPoJoToSerializerProcessor = new AmexPoJoToSerializerProcessor();
-        amexPoJoToSerializerProcessor.setCsvMapper(csvMapper);
-        amexPoJoToSerializerProcessor.setObjectMapper(jsonMapper);
-        return amexPoJoToSerializerProcessor; // every possible component is loaded choose what you want in the writer
-    }
-
-    @Bean(name = "AmexS3ComponentWriter")
-    @StepScope
-    @Autowired
-    public AmexS3ComponentWriter  amexS3ComponentWriter(AmazonS3 amazonS3) {
+    public AmexFileProcessor amexFileProcessor(AmazonS3 s3, CsvMapper csvMapper, ObjectMapper jsonMapper) {
         Set<FixedWidthDataFileComponent> include;
         if (sinkAwsS3ComponentFilter != null && !sinkAwsS3ComponentFilter.isEmpty())
             include = EnumSet.copyOf(Arrays.stream(sinkAwsS3ComponentFilter.split("\\s*,\\s*")).map(FixedWidthDataFileComponent::valueOf).collect(Collectors.toList()));
         else
             include = EnumSet.copyOf(Arrays.asList(FixedWidthDataFileComponent.values()));
-        AmexS3ComponentWriter writer = new AmexS3ComponentWriter();
-        writer.setAmazonS3(amazonS3);
-        writer.setIncludeFilter(include);
-        writer.setS3Bucket(s3Bucket);
 
-        return writer;
+        AmexFileProcessor amexFileProcessor = new AmexFileProcessor();
+        amexFileProcessor.setCsvMapper(csvMapper);
+        amexFileProcessor.setObjectMapper(jsonMapper);
+        amexFileProcessor.setIncludeFilter(include);
+        amexFileProcessor.setAmazonS3(s3);
+        amexFileProcessor.setS3Bucket(s3Bucket);
+
+        return amexFileProcessor;
+    }
+
+    @Bean(name = "AmexRedshiftWriter")
+    @StepScope
+    @Autowired
+    public AmexRedshiftWriter  amexRedshiftWriter(@Qualifier("dwRedshiftDataSource") DataSource dataSource) {
+        Set<FixedWidthDataFileComponent> include;
+        if (sinkAwsS3ComponentFilter != null && !sinkAwsS3ComponentFilter.isEmpty())
+            include = EnumSet.copyOf(Arrays.stream(sinkAwsS3ComponentFilter.split("\\s*,\\s*")).map(FixedWidthDataFileComponent::valueOf).collect(Collectors.toList()));
+        else
+            include = EnumSet.copyOf(Arrays.asList(FixedWidthDataFileComponent.values()));
+        AmexRedshiftWriter amexRedshiftWriter = new AmexRedshiftWriter();
+        amexRedshiftWriter.setSchemaName(redshiftSchemaName);
+        amexRedshiftWriter.setIncludeFilter(include);
+        amexRedshiftWriter.setDataSource(dataSource);
+        amexRedshiftWriter.setRedshiftS3AccessCredentials(redshiftCopyCredentials);
+
+        return amexRedshiftWriter;
     }
 
     /**
@@ -221,21 +228,21 @@ public class BatchConfig {
      *    3.1 Apply a filter to selectively upload components
      *    3.2 Store the locations of the uploaded components for subsequent steps to locate and make use of
      */
-    @StepScope
+    // @StepScope
     @Autowired
-    @Bean(name = "readFileWriteComponentstoS3")
+    @Bean(name = "LoadAmexFileDataWarehouseViaDataLake")
     protected Step step1(
             StepBuilderFactory stepBuilderFactory,
             PlatformTransactionManager platformTransactionManager,
-            @Qualifier("AmexFileReader") ItemReader<FixedWidthDataFile> itemReader,
-            @Qualifier("AmexPoJoToSerializerProcessor") ItemProcessor<FixedWidthDataFile,List<SerializedComponent<String>> > itemProcessor,
-            @Qualifier("AmexS3ComponentWriter") ItemWriter<List<SerializedComponent<String>> >itemWriter,
+            @Qualifier("AmexFileItemReader") AmexFileItemReader itemReader,
+            @Qualifier("AmexFileProcessor") AmexFileProcessor itemProcessor,
+            @Qualifier("AmexRedshiftWriter") AmexRedshiftWriter itemWriter,
             @Qualifier("ExecutionContextPromotionListener") ExecutionContextPromotionListener promotionListener
     ) {
 
         Assert.notNull(promotionListener,"ExecutionContextPromotionListener must be set");
         return stepBuilderFactory.get("step1")
-                .<FixedWidthDataFile, List<SerializedComponent<String>>>chunk(1)
+                .<FixedWidthDataFile, List<SerializedComponent<AmazonS3URI>>>chunk(1)
                 .reader(itemReader)
                 .processor(itemProcessor)
                 .writer(itemWriter)
@@ -244,53 +251,18 @@ public class BatchConfig {
                 .allowStartIfComplete(true)
                 .build();
     }
-    @Bean(name = "AmexRedshiftWriter")
-    @StepScope
-    @Autowired
-    public AmexRedshiftWriter  amexRedshiftWriter(
-            @Qualifier("dwRedshiftDataSource") DataSource dataSource
-    ) {
-        Set<FixedWidthDataFileComponent> include;
-        if (sinkAwsRedshiftComponentFilter != null && !sinkAwsRedshiftComponentFilter.isEmpty())
-            include = EnumSet.copyOf(Arrays.stream(sinkAwsRedshiftComponentFilter.split("\\s*,\\s*")).map(FixedWidthDataFileComponent::valueOf).collect(Collectors.toList()));
-        else
-            include = EnumSet.copyOf(Arrays.asList(FixedWidthDataFileComponent.values()));
-        AmexRedshiftWriter writer = new AmexRedshiftWriter();
-        writer.setIncludeFilter(include);
-        writer.setRedshiftS3AccessCredentials(redshiftCopyCredentials);
-        writer.setDataSource(dataSource);
-        writer.setSchemaName(getRedshiftSchemaName());
-        return writer;
-    }
-
-    @StepScope
-    @Autowired
-    @Bean(name="loadComponentURLtoRedshift")
-    protected Step Step2(StepBuilderFactory stepBuilderFactory,
-                         PlatformTransactionManager platformTransactionManager,
-                        @Qualifier("AmexRedshiftWriter") AmexRedshiftWriter writer ){
-        return stepBuilderFactory
-                .get("step2")
-                .<Object,SerializedComponent<AmazonS3URI>>chunk(10)
-                .writer(writer)
-                .transactionManager(platformTransactionManager)
-                .allowStartIfComplete(true)
-                .build();
-    }
 
     //@JobScope
     @Autowired
     @Bean(name = "americanExpressFileImportJob")
     public  Job americanExpressFileImportJob(
-            JobBuilderFactory jobBuilderFactory,@Qualifier("readFileWriteComponentstoS3") Step step1
+            JobBuilderFactory jobBuilderFactory,@Qualifier("LoadAmexFileDataWarehouseViaDataLake") Step step1
     ) {
         return jobBuilderFactory.get("americanExpressFileImportJob")
                 .flow(step1)
                 .end()
                 .build();
     }
-
-
 
 
 }

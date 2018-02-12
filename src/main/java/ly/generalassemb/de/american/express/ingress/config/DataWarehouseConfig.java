@@ -68,7 +68,7 @@ public class DataWarehouseConfig {
                             redshiftTunnelHost,
                             redshiftPort,
                             redshiftHost,
-                            redshiftPort);  //"davidashirov@localhost->david.ashirov@bastion1.de.ga.co|127.0.0.1:5439:dw.data.generalassemb.ly:5439";
+                            redshiftPort);
             SimpleDriverDataSource datasource = new SimpleDriverDataSource();
             datasource.setDriver(new com.amazon.redshift.jdbc42.Driver());
             datasource.setUrl("jdbc:redshift://localhost:" + redshiftPort + "/" + redshiftDatabaseName);
@@ -81,7 +81,7 @@ public class DataWarehouseConfig {
         } else {
             SimpleDriverDataSource datasource = new SimpleDriverDataSource();
             datasource.setDriver(new org.postgresql.Driver());
-            datasource.setUrl("jdbc:postgresql://" + redshiftHost + ":" + redshiftPort + "/" + redshiftDatabaseName);
+            datasource.setUrl("jdbc:redshift://" + redshiftHost + ":" + redshiftPort + "/" + redshiftDatabaseName);
             datasource.setUsername(redshiftUser);
             datasource.setPassword(redshiftPass);
             return new TransactionAwareDataSourceProxy(datasource);

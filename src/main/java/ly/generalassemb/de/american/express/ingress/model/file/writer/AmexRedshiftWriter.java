@@ -6,10 +6,7 @@ import ly.generalassemb.de.american.express.ingress.model.FixedWidthDataFileComp
 import ly.generalassemb.de.american.express.ingress.model.file.ComponentSerializer.SerializedComponent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.StepExecution;
-import org.springframework.batch.core.annotation.BeforeStep;
-import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.item.ItemWriter;
 
 import javax.sql.DataSource;
@@ -18,11 +15,12 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class AmexRedshiftWriter implements ItemWriter<SerializedComponent<AmazonS3URI>> {
+public class AmexRedshiftWriter implements ItemWriter<List<SerializedComponent<AmazonS3URI>>>{
     private static final Logger LOGGER = LoggerFactory.getLogger(AmexRedshiftWriter.class);
 
     // place anything you may need subsequent seps to see onto stepExecution
@@ -116,10 +114,10 @@ public class AmexRedshiftWriter implements ItemWriter<SerializedComponent<Amazon
         }
     }
 
-    public void write(List<? extends SerializedComponent<AmazonS3URI>> items) throws Exception {
+    public void write(List<? extends List<SerializedComponent<AmazonS3URI>>> items) throws Exception {
         List<SerializedComponent<AmazonS3URI>> wantedComponents
                 = items
-                .stream()
+                .stream().flatMap(Collection::stream)
                 .filter(item -> includeFilter.contains(item.getType()))
                 .collect(Collectors.toList());
 
@@ -139,9 +137,10 @@ public class AmexRedshiftWriter implements ItemWriter<SerializedComponent<Amazon
                     "CREATE TEMPORARY TABLE temp_" + targetTable +
                             "( LIKE " + targetTable + "  );"
             );
+
             statements.add(
                     "COPY  temp_" + targetTable +
-                            " FROM '" + uri + "'\n " +
+                            " FROM '" + java.net.URLDecoder.decode( uri.getURI().toString(), "UTF-8") + "'\n " + // TODO: This is beyond stupid <---
                             " CREDENTIALS '" + getRedshiftS3AccessCredentials() + "' " +
                             " CSV IGNOREHEADER 1 DATEFORMAT 'YYYY-MM-DD' TIMEFORMAT 'YYYY-MM-DD HH24:MI:SS';"
             );
@@ -163,7 +162,7 @@ public class AmexRedshiftWriter implements ItemWriter<SerializedComponent<Amazon
             statements.add(
                     "DROP TABLE IF EXISTS  temp_" + targetTable + ";"
             );
-
+            LOGGER.warn(statements.stream().collect(Collectors.joining("\n")));
         }
         List<Statement> statement = new ArrayList<>(); // need these to close them after exec
         try {
@@ -188,16 +187,5 @@ public class AmexRedshiftWriter implements ItemWriter<SerializedComponent<Amazon
                     st.close();
             connection.setAutoCommit(true);
         }
-    }
-
-    @BeforeStep
-    public void retrieveInterstepData(StepExecution stepExecution) {
-        this.stepExecution = stepExecution;
-
-        JobExecution jobExecution = stepExecution.getJobExecution();
-        ExecutionContext jobContext = jobExecution.getExecutionContext();
-        this.s3SerializedComponents = (List<SerializedComponent<AmazonS3URI>>) jobContext.get("s3SerializedComponents");
-
-
     }
 }

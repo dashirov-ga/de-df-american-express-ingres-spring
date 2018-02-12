@@ -1,6 +1,9 @@
 package ly.generalassemb.de.american.express.ingress.config;
 
-import org.junit.*;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,7 +23,7 @@ import java.sql.ResultSet;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 
-// @PropertySource("classpath:application.properties")
+@PropertySource("classpath:application.properties")
 @TestPropertySource("classpath:application.properties")                              //critical
 @Transactional                                                                       //critical
 @EnableAutoConfiguration                                                             //critical
@@ -43,7 +47,6 @@ public class JDBCConfigTest {
         LOGGER.debug("Closing db connection");
         connection.close();
     }
-    @Ignore
     @Test
     public void testConnection() {
         try {
