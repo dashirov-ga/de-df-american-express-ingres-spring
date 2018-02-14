@@ -14,7 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
-import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Configuration;
 
 import java.util.Date;
 import java.util.concurrent.Executors;
@@ -23,7 +23,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.amazonaws.services.s3.internal.Constants.MB;
 
-@Component
+@Configuration
 public class S3Config {
 
     @Value("${sink.aws.s3.access_key_id}")

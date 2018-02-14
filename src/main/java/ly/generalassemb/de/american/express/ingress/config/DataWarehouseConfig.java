@@ -5,18 +5,19 @@ import com.pastdev.jsch.DefaultSessionFactory;
 import com.pastdev.jsch.tunnel.TunnelConnectionManager;
 import com.pastdev.jsch.tunnel.TunneledDataSourceWrapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
-import org.springframework.jdbc.datasource.SimpleDriverDataSource;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy;
-import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 
-@Component
+@Configuration
 public class DataWarehouseConfig {
+
 
     @Value("${sink.aws.redshift.username}")
     private String redshiftUser;
@@ -35,7 +36,6 @@ public class DataWarehouseConfig {
 
     @Value("${sink.aws.redshift.driver-class-name}")
     private String redshiftDriverClass;
-
 
     @Value("${sink.aws.redshift.ssh-tunnel}")
     private Boolean redshiftTunnel;
@@ -57,7 +57,7 @@ public class DataWarehouseConfig {
 
 
     @Bean(name = "dwRedshiftDataSource")
-    public DataSource dataSourceRedshift() throws JSchException, ClassNotFoundException, FileNotFoundException {
+    public DataSource dwRedshiftDataSource() throws JSchException, FileNotFoundException {
         if (redshiftTunnel == null)
             return null;
         if (redshiftTunnel) {
@@ -69,24 +69,29 @@ public class DataWarehouseConfig {
                             redshiftPort,
                             redshiftHost,
                             redshiftPort);
-            SimpleDriverDataSource datasource = new SimpleDriverDataSource();
-            datasource.setDriver(new com.amazon.redshift.jdbc42.Driver());
-            datasource.setUrl("jdbc:redshift://localhost:" + redshiftPort + "/" + redshiftDatabaseName);
-            datasource.setUsername(redshiftUser);
-            datasource.setPassword(redshiftPass);
+            DataSource dataSource = DataSourceBuilder.create()
+                    .url("jdbc:redshift://localhost:" + redshiftPort + "/" + redshiftDatabaseName)
+                    .username(redshiftUser)
+                    .password(redshiftPass)
+                    .driverClassName("com.amazon.redshift.jdbc42.Driver")
+                    .build();
+
             DefaultSessionFactory defaultSessionFactory = new DefaultSessionFactory();
             defaultSessionFactory.setKnownHosts(new FileInputStream(new File(redshiftTunnelKnownHosts)));
             defaultSessionFactory.setIdentityFromPrivateKey(redshiftTunnelPrivateKey);
-            return new TunneledDataSourceWrapper(new TunnelConnectionManager(defaultSessionFactory, tunnelDefinition), new TransactionAwareDataSourceProxy(datasource));
+            return new TunneledDataSourceWrapper(new TunnelConnectionManager(defaultSessionFactory, tunnelDefinition),
+                    dataSource);
         } else {
-            SimpleDriverDataSource datasource = new SimpleDriverDataSource();
-            datasource.setDriver(new org.postgresql.Driver());
-            datasource.setUrl("jdbc:redshift://" + redshiftHost + ":" + redshiftPort + "/" + redshiftDatabaseName);
-            datasource.setUsername(redshiftUser);
-            datasource.setPassword(redshiftPass);
-            return new TransactionAwareDataSourceProxy(datasource);
+            DataSource dataSource = DataSourceBuilder.create()
+                    .url("jdbc:redshift://" + redshiftHost + ":" + redshiftPort + "/" + redshiftDatabaseName)
+                    .username(redshiftUser)
+                    .password(redshiftPass)
+                    .driverClassName("com.amazon.redshift.jdbc42.Driver")
+                    .build();
+            return new TransactionAwareDataSourceProxy(dataSource);
         }
 
     }
+
 
 }

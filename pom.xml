@@ -29,9 +29,11 @@
         <spring.batch.version>4.0.0.RELEASE</spring.batch.version>
         <aws.java.sdk.version>1.11.256</aws.java.sdk.version>
         <aws.redshift.jdbc.version>1.2.10.1009</aws.redshift.jdbc.version>
+        <aws.redshift.sdk.version>1.11.276</aws.redshift.sdk.version>
         <jackson.version>2.9.4</jackson.version>
 
         <start-class>ly.generalassemb.de.american.express.ingress.FeedHandler</start-class>
+        <newrelic.application.name>${project.name}</newrelic.application.name>
     </properties>
 
     <dependencies>
@@ -44,6 +46,16 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
+        </dependency>
+        <!--dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+            <version>${spring.boot.version}</version>
+        </dependency-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc </artifactId>
+            <version>${spring.boot.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -87,9 +99,20 @@
         </dependency>
 
 
-        <dependency>
+        <!--dependency>
             <groupId>com.amazon.redshift</groupId>
             <artifactId>redshift-jdbc42</artifactId>
+            <version>${aws.redshift.jdbc.version}</version>
+        </dependency-->
+
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-redshift</artifactId>
+            <version>${aws.redshift.sdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.amazon.redshift</groupId>
+            <artifactId>redshift-jdbc42-no-awssdk</artifactId>
             <version>${aws.redshift.jdbc.version}</version>
         </dependency>
 
@@ -129,11 +152,11 @@
             <version>${jackson.version}</version>
         </dependency>
 
-        <dependency>
+        <!--dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-log4j12</artifactId>
             <version>1.7.25</version>
-        </dependency>
+        </dependency-->
         <dependency>
             <groupId>com.ancientprogramming.fixedformat4j</groupId>
             <artifactId>fixedformat4j</artifactId>
@@ -227,6 +250,13 @@
             <version>3.47.0</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-dbcp2</artifactId>
+            <version>2.2.0</version>
+        </dependency>
+
+
 
     </dependencies>
     <repositories>
@@ -253,10 +283,14 @@
 
     </repositories>
     <build>
+        <filters>
+            <filter>src/main/resources/newrelic.properties</filter>
+            <!--filter>src/main/resources/application.properties</filter-->
+        </filters>
         <resources>
-            <resource>
+            <!--resource>
                 <directory>${env.HOME}/.aws/</directory>
-            </resource>
+            </resource-->
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>false</filtering>
@@ -264,6 +298,10 @@
             <resource>
                 <directory>src/main/resources-filtered</directory>
                 <filtering>true</filtering>
+                <targetPath>${project.build.outputDirectory}</targetPath>
+                <includes>
+                    <include>newrelic.yml</include>
+                </includes>
             </resource>
             <resource>
                 <directory>test/resources</directory>
@@ -272,7 +310,7 @@
         </resources>
 
         <plugins>
-
+<!--
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -287,28 +325,27 @@
                         <configuration>
                             <includeArtifactIds>newrelic-agent</includeArtifactIds>
                             <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+                            <excludes>**/*newrelic.yml</excludes>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
-<!--
-                        <plugin>
-                            <groupId>org.apache.maven.plugins</groupId>
-                            <artifactId>maven-jar-plugin</artifactId>
-                            <version>3.0.2</version>
-                            <configuration>
-                                <archive>
-                                    <manifestEntries>
-                                        <Premain-Class>com.newrelic.bootstrap.BootstrapAgent</Premain-Class>
-                                        <Main-Class>ly.generalassemb.de.american.express.ingress.FeedHandler</Main-Class>
-                                        <Can-Redefine-Classes>true</Can-Redefine-Classes>
-                                        <Can-Retransform-Classes>true</Can-Retransform-Classes>
-                                    </manifestEntries>
-                                </archive>
-                            </configuration>
-                        </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.0.2</version>
+                <configuration>
+                    <archive>
+                        <manifestEntries>
+                            <Premain-Class>com.newrelic.bootstrap.BootstrapAgent</Premain-Class>
+                            <Main-Class>ly.generalassemb.de.american.express.ingress.FeedHandler</Main-Class>
+                            <Can-Redefine-Classes>true</Can-Redefine-Classes>
+                            <Can-Retransform-Classes>true</Can-Retransform-Classes>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
 -->
-
 
             <plugin>
                 <groupId>org.springframework.boot</groupId>
@@ -325,8 +362,6 @@
                     </execution>
                 </executions>
             </plugin>
-
-
         </plugins>
     </build>
 </project>
