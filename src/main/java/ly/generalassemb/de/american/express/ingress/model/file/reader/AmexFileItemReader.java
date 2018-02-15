@@ -14,7 +14,7 @@ import org.springframework.util.ClassUtils;
 public class AmexFileItemReader
         extends AbstractItemCountingItemStreamItemReader<FixedWidthDataFile>
         implements ResourceAwareItemReaderItemStream<FixedWidthDataFile>, InitializingBean {
-    private static final Log logger = LogFactory.getLog(AmexFileItemReader.class);
+    private static final Log LOGGER = LogFactory.getLog(AmexFileItemReader.class);
 
 
     private final static FixedWidthDataFileFactory factory = new FixedWidthDataFileFactory();
@@ -53,18 +53,19 @@ public class AmexFileItemReader
             if (strict) {
                 throw new IllegalStateException("Input resource must exist (reader is in 'strict' mode): " + resource);
             }
-            logger.warn("Input resource does not exist " + resource.getDescription());
+            LOGGER.warn("Input resource does not exist " + resource.getDescription());
             return;
         }
-
+        LOGGER.info("Testing if resource is readable " + resource.getFilename());
         if (!resource.isReadable()) {
             if (strict) {
                 throw new IllegalStateException("Input resource must be readable (reader is in 'strict' mode): "
                         + resource);
             }
-            logger.warn("Input resource is not readable " + resource.getDescription());
+            LOGGER.warn("Input resource is not readable " + resource.getDescription());
             return;
         }
+        LOGGER.info("Resource is readable " + resource.getFilename());
         noInput=false;
     }
 

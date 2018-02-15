@@ -34,6 +34,7 @@ public class EMINQFixedWidthDataFile extends FixedWidthDataFileImpl {
     }
 
     public EMINQFixedWidthDataFile(File file) throws Exception {
+        this();
         parse(file);
     }
 

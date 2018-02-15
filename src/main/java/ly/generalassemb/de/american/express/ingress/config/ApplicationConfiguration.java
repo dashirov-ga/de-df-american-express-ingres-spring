@@ -1,7 +1,6 @@
 package ly.generalassemb.de.american.express.ingress.config;
 
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3URI;
 import com.amazonaws.services.s3.model.Bucket;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
@@ -10,12 +9,10 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.jcraft.jsch.ChannelSftp;
-import ly.generalassemb.de.american.express.ingress.model.FixedWidthDataFile;
 import ly.generalassemb.de.american.express.ingress.model.FixedWidthDataFileComponent;
-import ly.generalassemb.de.american.express.ingress.model.file.ComponentSerializer.SerializedComponent;
-import ly.generalassemb.de.american.express.ingress.model.file.reader.AmexFileItemReader;
-import ly.generalassemb.de.american.express.ingress.model.file.writer.AmexFileProcessor;
-import ly.generalassemb.de.american.express.ingress.model.file.writer.AmexRedshiftWriter;
+import ly.generalassemb.de.american.express.ingress.model.file.writer.SerializedComponentRedshiftWriter;
+import ly.generalassemb.de.american.express.ingress.model.file.writer.SerializedComponentS3Writer;
+import ly.generalassemb.de.american.express.ingress.tasklet.AmexFileRedshiftLoadingTasklet;
 import ly.generalassemb.de.american.express.ingress.tasklet.ResourceDeletingTasklet;
 import ly.generalassemb.de.american.express.ingress.transformer.FileMessageToJobRequest;
 import ly.generalassemb.de.databind.AmazonS3URIModule;
@@ -60,8 +57,8 @@ import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.EnumSet;
-import java.util.List;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.stream.Collectors;
 
 
@@ -90,13 +87,6 @@ import java.util.stream.Collectors;
 @ComponentScan(basePackageClasses = BatchConfigurer.class)
 @PropertySource("classpath:application.properties")
 public class ApplicationConfiguration  {
-    /*
-    @Bean
-    public static PropertySourcesPlaceholderConfigurer
-    propertySourcesPlaceholderConfigurer() {
-        return new PropertySourcesPlaceholderConfigurer();
-    }
-*/
 
     @Qualifier("dwRedshiftDataSource")
     @Autowired
@@ -118,10 +108,10 @@ public class ApplicationConfiguration  {
     @Value("${source.amex.sftp.private-key-file:#{null}}")
     private Resource sftpPrivateKey;
 
-    @Value("${source.amex.sftp.known_hosts:#{null}}")
+    @Value("${source.amex.sftp.known-hosts:#{null}}")
     private String sftpKnownHosts;
 
-    @Value("${source.amex.sftp.private_key_passphrase:}")
+    @Value("${source.amex.sftp.private-key-passphrase:}")
     private String sftpPrivateKeyPassphrase;
 
     @Value("${source.amex.sftp.remote_directory:/sent}")
@@ -170,10 +160,13 @@ public class ApplicationConfiguration  {
         return new DirectChannel();
     }
 
+
     @Bean(name = PollerMetadata.DEFAULT_POLLER)
     public PollerMetadata poller() {
-        return Pollers.fixedDelay(1000).get();
+        return Pollers.cron("0/5 * * * * *", TimeZone.getDefault()).get();
+       // return Pollers.fixedDelay(1000).get();
     }
+
 
     @Bean
     public SessionFactory<ChannelSftp.LsEntry> sftpSessionFactory() throws UnsupportedEncodingException {
@@ -268,22 +261,6 @@ public class ApplicationConfiguration  {
                 .get();
     }
 
-
-/*
-    @Bean
-    @ServiceActivator(inputChannel = "stepExecutionsChannel")
-    public LoggingHandler loggingHandler() {
-        LoggingHandler adapter = new LoggingHandler(LoggingHandler.Level.WARN);
-        adapter.setLoggerName("TEST_LOGGER");
-        adapter.setLogExpressionString("headers.id + ': ' + payload");
-        return adapter;
-    }
-    @MessagingGateway(name = "notificationExecutionsListener", defaultRequestChannel = "stepExecutionsChannel")
-    public interface NotificationExecutionListener extends StepExecutionListener {}
-
-*/
-
-
     /**
      * Need a custom serializer to take care of LocalDate LocalDateTime and AmazonS3URI
      * This should be used in both batch and application contexts, no competing, alternate ObjectMapper is needed
@@ -309,115 +286,56 @@ public class ApplicationConfiguration  {
         csvMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         return csvMapper;
     }
-   /*
-    @Primary
-    @Autowired
-    @Bean
-    public Jackson2ExecutionContextStringSerializer serializer(ObjectMapper objectMapper) {
-        Jackson2ExecutionContextStringSerializer serializer = new Jackson2ExecutionContextStringSerializer();
-        // replace object mapper with one that is capable of com.amazonaws.services.s3.AmazonS3URI serialization/de-serialization
-        System.out.println("Setting custom objectMapper");
-        serializer.setObjectMapper(objectMapper);
-        return serializer;
-    }
 
 
     @Autowired
-    @Bean
-    public DataSourceTransactionManager transactionManager(DataSource dataSource) {
-        return new DataSourceTransactionManager(dataSource);
+    @Bean(name="SerializedComponentS3Writer")
+    public SerializedComponentS3Writer serializedComponentS3Writer( AmazonS3 s3){
+        SerializedComponentS3Writer serializedComponentS3Writer = new SerializedComponentS3Writer();
+        serializedComponentS3Writer.setS3Bucket(s3Bucket);
+        serializedComponentS3Writer.setAmazonS3(s3);
+        return serializedComponentS3Writer;
     }
-
-
-
-    // need a custom JobRepository to replace ObjectMapper with a smarter one
-    @Primary
-    @Bean
     @Autowired
-    public JobRepository jobRepository(DataSource dataSource,
-                                       DataSourceTransactionManager txManager,
-                                       Jackson2ExecutionContextStringSerializer serializer
-    ) throws Exception {
-        JobRepositoryFactoryBean fac = new JobRepositoryFactoryBean();
-        fac.setDatabaseType("POSTGRES");
-        fac.setDataSource(dataSource);
-        fac.setTransactionManager(txManager);
-        fac.setSerializer(serializer);
-        fac.afterPropertiesSet();
-
-        return fac.getObject();
-
-    }
-
-
-    // need a custom JobExplorer to replace ObjectMapper with a smarter one
     @Bean
+    public SerializedComponentRedshiftWriter serializedComponentRedshiftWriter(@Qualifier("dwRedshiftDataSource") DataSource dataSource){
+        SerializedComponentRedshiftWriter serializedComponentRedshiftWriter = new SerializedComponentRedshiftWriter();
+        serializedComponentRedshiftWriter.setDataSource(dataSource);
+        serializedComponentRedshiftWriter.setRedshiftS3AccessCredentials(redshiftCopyCredentials);
+        serializedComponentRedshiftWriter.setSchemaName(redshiftSchemaName);
+        return serializedComponentRedshiftWriter;
+    }
     @Autowired
-    public JobExplorer jobExplorer(
-            DataSource dataSource,
-            Jackson2ExecutionContextStringSerializer serializer) throws Exception {
-
-        JobExplorerFactoryBean fac = new JobExplorerFactoryBean();
-        fac.setDataSource(dataSource);
-        fac.setSerializer(serializer);
-        fac.afterPropertiesSet();
-        return fac.getObject();
-    }
-
-
-    @Bean(name = "ExecutionContextPromotionListener")
-    public ExecutionContextPromotionListener promotionListener() {
-        ExecutionContextPromotionListener promotionListener = new ExecutionContextPromotionListener();
-        String[] keys = {"s3SerializedComponents"};
-        promotionListener.setKeys(keys);
-        return promotionListener;
-    }
-    */
-
-    // Amex File POJO does not have mappers set yet, so it won't serialize components properly
-
+    @Bean
     @StepScope
-    @Bean(name = "AmexFileItemReader")
-    public AmexFileItemReader amexReader(@Value("#{jobParameters['input.file.name']}") String resource) {
-        AmexFileItemReader amexFileItemReader = new AmexFileItemReader();
-        amexFileItemReader.setResource(new FileSystemResource(resource));
-        return amexFileItemReader;
-    }
-
-    @Bean(name = "AmexFileProcessor")
-    @Autowired
-    public AmexFileProcessor amexFileProcessor(AmazonS3 s3, CsvMapper csvMapper, ObjectMapper jsonMapper) {
-        Set<FixedWidthDataFileComponent> include;
+    public AmexFileRedshiftLoadingTasklet amexFileRedshiftLoadingTasklet(
+            @Value("#{jobParameters['input.file.name']}") String resource,
+            @Qualifier("SerializedComponentS3Writer") SerializedComponentS3Writer s3Writer,
+            SerializedComponentRedshiftWriter redshiftWriter,
+            ObjectMapper jsonMapper,
+            CsvMapper csvMapper
+            ){
+        Set<FixedWidthDataFileComponent> s3IncludeFilter;
         if (sinkAwsS3ComponentFilter != null && !sinkAwsS3ComponentFilter.isEmpty())
-            include = EnumSet.copyOf(Arrays.stream(sinkAwsS3ComponentFilter.split("\\s*,\\s*")).map(FixedWidthDataFileComponent::valueOf).collect(Collectors.toList()));
+            s3IncludeFilter = EnumSet.copyOf(Arrays.stream(sinkAwsS3ComponentFilter.split("\\s*,\\s*")).map(FixedWidthDataFileComponent::valueOf).collect(Collectors.toList()));
         else
-            include = EnumSet.copyOf(Arrays.asList(FixedWidthDataFileComponent.values()));
+            s3IncludeFilter = EnumSet.copyOf(Arrays.asList(FixedWidthDataFileComponent.values()));
 
-        AmexFileProcessor amexFileProcessor = new AmexFileProcessor();
-        amexFileProcessor.setCsvMapper(csvMapper);
-        amexFileProcessor.setObjectMapper(jsonMapper);
-        amexFileProcessor.setIncludeFilter(include);
-        amexFileProcessor.setAmazonS3(s3);
-        amexFileProcessor.setS3Bucket(s3Bucket);
-
-        return amexFileProcessor;
-    }
-
-    @Bean(name = "AmexRedshiftWriter")
-    @Autowired
-    public AmexRedshiftWriter amexRedshiftWriter(@Qualifier("dwRedshiftDataSource") DataSource dwRedshiftDataSource) {
-        Set<FixedWidthDataFileComponent> include;
-        if (sinkAwsS3ComponentFilter != null && !sinkAwsS3ComponentFilter.isEmpty())
-            include = EnumSet.copyOf(Arrays.stream(sinkAwsS3ComponentFilter.split("\\s*,\\s*")).map(FixedWidthDataFileComponent::valueOf).collect(Collectors.toList()));
+        Set<FixedWidthDataFileComponent> dwIncludeFilter;
+        if (sinkAwsRedshiftComponentFilter != null && !sinkAwsRedshiftComponentFilter.isEmpty())
+            dwIncludeFilter = EnumSet.copyOf(Arrays.stream(sinkAwsRedshiftComponentFilter.split("\\s*,\\s*")).map(FixedWidthDataFileComponent::valueOf).collect(Collectors.toList()));
         else
-            include = EnumSet.copyOf(Arrays.asList(FixedWidthDataFileComponent.values()));
-        AmexRedshiftWriter amexRedshiftWriter = new AmexRedshiftWriter();
-        amexRedshiftWriter.setSchemaName(redshiftSchemaName);
-        amexRedshiftWriter.setIncludeFilter(include);
-        amexRedshiftWriter.setDataSource(dwRedshiftDataSource);
-        amexRedshiftWriter.setRedshiftS3AccessCredentials(redshiftCopyCredentials);
+            dwIncludeFilter = EnumSet.copyOf(Arrays.asList(FixedWidthDataFileComponent.values()));
 
-        return amexRedshiftWriter;
+        AmexFileRedshiftLoadingTasklet amexFileRedshiftLoadingTasklet = new AmexFileRedshiftLoadingTasklet();
+        amexFileRedshiftLoadingTasklet.setResource(new FileSystemResource(resource));
+        amexFileRedshiftLoadingTasklet.setS3Writer(s3Writer);
+        amexFileRedshiftLoadingTasklet.setRedshiftWriter(redshiftWriter);
+        amexFileRedshiftLoadingTasklet.setCsvMapper(csvMapper);
+        amexFileRedshiftLoadingTasklet.setJsonMapper(jsonMapper);
+        amexFileRedshiftLoadingTasklet.setDataWarehouseIncludeFilter(dwIncludeFilter);
+        amexFileRedshiftLoadingTasklet.setDataLakeIncludeFilter(s3IncludeFilter);
+        return amexFileRedshiftLoadingTasklet;
     }
 
     /**
@@ -435,22 +353,10 @@ public class ApplicationConfiguration  {
     @Bean(name = "LoadAmexFileDataWarehouseViaDataLake")
     protected Step step1(
             StepBuilderFactory stepBuilderFactory,
-            // DataSourceTransactionManager dataSourceTransactionManager,
-            @Qualifier("AmexFileItemReader") AmexFileItemReader itemReader,
-            @Qualifier("AmexFileProcessor") AmexFileProcessor itemProcessor,
-            @Qualifier("AmexRedshiftWriter") AmexRedshiftWriter itemWriter /*,
-            @Qualifier("ExecutionContextPromotionListener") ExecutionContextPromotionListener promotionListener
-            */
+            AmexFileRedshiftLoadingTasklet amexFileRedshiftLoadingTasklet
     ) {
-
-        // Assert.notNull(promotionListener, "ExecutionContextPromotionListener must be set");
         return stepBuilderFactory.get("step1")
-                .<FixedWidthDataFile, List<SerializedComponent<AmazonS3URI>>>chunk(1)
-                .reader(itemReader)
-                .processor(itemProcessor)
-                .writer(itemWriter)
-              //  .transactionManager(dataSourceTransactionManager)
-                //.listener(promotionListener)
+                .tasklet(amexFileRedshiftLoadingTasklet)
                 .allowStartIfComplete(true)
                 .build();
     }
@@ -468,10 +374,7 @@ public class ApplicationConfiguration  {
     @Bean(name="DeleteLocallyPersistedFileAfterLoadComplete")
     protected Step step2(
             StepBuilderFactory stepBuilderFactory,
-           // DataSourceTransactionManager dataSourceTransactionManager,
-            ResourceDeletingTasklet resourceDeletingTasklet /*,
-            @Qualifier("ExecutionContextPromotionListener") ExecutionContextPromotionListener promotionListener
-            */
+            ResourceDeletingTasklet resourceDeletingTasklet
 
     ) {
         return stepBuilderFactory.get("step2")

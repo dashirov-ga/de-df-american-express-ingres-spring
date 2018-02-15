@@ -43,6 +43,8 @@ public enum FixedWidthDataFileComponent {
             ImmutableList.builder().add("nexus").build()),
     EPAPE_CSV_PAYMENT_COMPONENT("EPAPE-SUMMARY","text/csv",".csv",true,true,"american_express_epape_payment",
             ImmutableList.builder().add("generated_payment_number").build()),
+    EPAPE_CSV_PRICING_COMPONENT("EPAPE-SUMMARY","text/csv",".csv",true,true,"american_express_epape_pricing",
+            ImmutableList.builder().add("generated_payment_number").build()),
     EPAPE_CSV_ADJUSTMENT_COMPONENT("EPAPE-ADJ-DETAIL","text/csv",".csv",true,true,"american_express_epape_adjustment",
             ImmutableList.builder().add("generated_payment_number").build()),
     EPAPE_CSV_SOC_COMPONENT("EPAPE-SOC-DETAIL","text/csv",".csv",true,true,"american_express_epape_summary_of_charges",

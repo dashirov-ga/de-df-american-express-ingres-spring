@@ -7,6 +7,8 @@ import ly.generalassemb.de.american.express.ingress.model.FixedWidthDataFile;
 import ly.generalassemb.de.american.express.ingress.model.FixedWidthDataFileComponent;
 import ly.generalassemb.de.american.express.ingress.model.file.*;
 import ly.generalassemb.de.american.express.ingress.model.file.ComponentSerializer.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.batch.item.ItemProcessor;
 
 import javax.validation.constraints.NotNull;
@@ -19,6 +21,8 @@ import java.util.Set;
  * The list is presumed to belong to a single file
  */
 public class AmexFileProcessor extends SerializedComponentS3Writer implements ItemProcessor<FixedWidthDataFile,List<SerializedComponent<AmazonS3URI>>> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AmexFileProcessor.class);
+
     @NotNull
     private Set<FixedWidthDataFileComponent> includeFilter;
     public Set<FixedWidthDataFileComponent> getIncludeFilter() {

@@ -21,7 +21,8 @@ import java.util.Map;
 public class EPTRNFixedWidthDataFile extends FixedWidthDataFileImpl {
 
     public EPTRNFixedWidthDataFile(File fileName) throws Exception{
-       this.parse(fileName);
+        this();
+        this.parse(fileName);
     }
     private Header header;
       List <PaymentIssued> payments;

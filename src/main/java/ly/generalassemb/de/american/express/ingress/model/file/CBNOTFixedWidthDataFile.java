@@ -34,6 +34,7 @@ public class CBNOTFixedWidthDataFile extends FixedWidthDataFileImpl {
         details = new ArrayList<>();
     }
     public CBNOTFixedWidthDataFile(File file) throws Exception{
+        this();
         parse(file);
     }
     public Header getHeader() {

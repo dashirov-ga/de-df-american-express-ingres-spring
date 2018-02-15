@@ -1,6 +1,8 @@
 package ly.generalassemb.de.american.express.ingress.model;
 
 import ly.generalassemb.de.american.express.ingress.model.file.*;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -12,6 +14,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class FixedWidthDataFileFactory {
+    private static final Log LOGGER = LogFactory.getLog(FixedWidthDataFileFactory.class);
+
 
     private static final Pattern fileNamePattern = Pattern.compile("^(?<account>[A-Za-z0-9]+)[.](?<type>(?:EPAPE|EPTRN|CBNOT|EMINQ|EMCBK))[#-](?<fileId>[A-Za-z0-9]+).*$");
 
@@ -50,9 +54,15 @@ public class FixedWidthDataFileFactory {
             } else {
                 return null;
             }
-            out.setInputFile( file );
+
+            if (out!=null) {
+                out.setInputFile(file);
+            }
+
             return out;
         } catch (Exception e) {
+            LOGGER.error("Factory method failed.");
+            LOGGER.error(e);
             return null;
         }
     }

@@ -26,6 +26,7 @@ public class EPAPEFixedWidthDataFile extends FixedWidthDataFileImpl {
         this.paymentList.add(reconciledPayment);
     }
     public EPAPEFixedWidthDataFile(File fileName) throws Exception {
+        paymentList = new ArrayList<>();
         this.parse(fileName);
     }
     public EPAPEFixedWidthDataFile() {
@@ -88,7 +89,7 @@ public class EPAPEFixedWidthDataFile extends FixedWidthDataFileImpl {
 
                 if ("DFTLR".equals(htIndicator)) {
                     currentReconciledPayment.setTrailer(manager.load(Trailer.class, line));
-                    this.paymentList.add(currentReconciledPayment);
+                    this.put(currentReconciledPayment);
                     currentReconciledPayment = null; // TODO: test if breaks
                 } else {
                     String dtIndicator = line.substring(32, 35);
@@ -177,6 +178,15 @@ public class EPAPEFixedWidthDataFile extends FixedWidthDataFileImpl {
                         .writeValueAsString(this.getPaymentList()
                                 .stream()
                                 .map(ReconciledPayment::getPaymentSummary)
+                                .collect(Collectors.toList()))
+
+        );
+        output.put(FixedWidthDataFileComponent.EPAPE_CSV_PRICING_COMPONENT,
+
+                csvMapper.writer(csvMapper.schemaFor(PricingRecord.class).withHeader())
+                        .writeValueAsString(this.getPaymentList()
+                                .stream()
+                                .map(ReconciledPayment::getPricingRecords)
                                 .collect(Collectors.toList()))
 
         );

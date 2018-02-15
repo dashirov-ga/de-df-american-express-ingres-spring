@@ -9,7 +9,7 @@ import java.util.List;
 public class ReconciledPayment {
     private Header header;
     private PaymentRecord paymentSummary;
-    private PricingRecord pricingSummary;
+    private List<PricingRecord> pricingRecords;
     private List<MerchantSubmission> merchantSubmissions;
     private Trailer trailer;
 
@@ -21,12 +21,12 @@ public class ReconciledPayment {
         this.paymentSummary = paymentSummary;
     }
 
-    public PricingRecord getPricingSummary() {
-        return pricingSummary;
+    public List<PricingRecord> getPricingRecords() {
+        return pricingRecords;
     }
 
-    public void setPricingSummary(PricingRecord pricingSummary) {
-        this.pricingSummary = pricingSummary;
+    public void setPricingSummary(List<PricingRecord> pricingSummary) {
+        this.pricingRecords = pricingSummary;
     }
 
     public List<MerchantSubmission> getMerchantSubmissions() {
@@ -39,6 +39,7 @@ public class ReconciledPayment {
 
     public ReconciledPayment() {
         merchantSubmissions=new ArrayList<>();
+        pricingRecords=new ArrayList<>();
 
     }
 
@@ -63,7 +64,7 @@ public class ReconciledPayment {
     }
 
     public void put(PricingRecord pricingRecord){
-        this.pricingSummary = pricingRecord;
+        this.pricingRecords.add(pricingRecord);
     }
 
     public void put(PaymentRecord paymentSummary){

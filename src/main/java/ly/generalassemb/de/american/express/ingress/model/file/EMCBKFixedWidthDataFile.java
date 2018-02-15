@@ -31,9 +31,10 @@ public class EMCBKFixedWidthDataFile extends FixedWidthDataFileImpl {
     }
 
     public EMCBKFixedWidthDataFile() {
+        this.details=new ArrayList<>();
     }
     public EMCBKFixedWidthDataFile(File file) throws Exception {
-        details = new ArrayList<>();
+        this();
         parse(file);
     }
 
