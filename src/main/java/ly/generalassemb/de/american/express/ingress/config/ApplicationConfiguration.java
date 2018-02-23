@@ -22,6 +22,7 @@ import org.springframework.batch.core.configuration.annotation.EnableBatchProces
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
+import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.launch.support.SimpleJobLauncher;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.integration.launch.JobLaunchingGateway;
@@ -54,6 +55,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import javax.sql.DataSource;
 import java.io.File;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -183,7 +185,7 @@ public class ApplicationConfiguration  {
     }
 
     @Bean
-    public SftpInboundFileSynchronizer sftpInboundFileSynchronizer() throws UnsupportedEncodingException {
+    public SftpInboundFileSynchronizer sftpInboundFileSynchronizer() throws IOException {
         SftpInboundFileSynchronizer fileSynchronizer = new SftpInboundFileSynchronizer(sftpSessionFactory());
         fileSynchronizer.setDeleteRemoteFiles(false);
         fileSynchronizer.setRemoteDirectory(sftpRemoteDirectory);
@@ -201,7 +203,7 @@ public class ApplicationConfiguration  {
 
     @Bean
     @InboundChannelAdapter(channel = "sftpChannel", poller = @Poller(cron = "0/5 * * * * *", maxMessagesPerPoll = "1"), autoStartup = "false")
-    public SftpInboundFileSynchronizingMessageSource sftpMessageSource() throws UnsupportedEncodingException {
+    public SftpInboundFileSynchronizingMessageSource sftpMessageSource() throws IOException {
         SftpInboundFileSynchronizingMessageSource source =
                 new SftpInboundFileSynchronizingMessageSource(sftpInboundFileSynchronizer());
         source.setLocalDirectory(new File(sftpLocalDirectory));
@@ -312,7 +314,7 @@ public class ApplicationConfiguration  {
             @Value("#{jobParameters['input.file.name']}") String resource,
             @Qualifier("SerializedComponentS3Writer") SerializedComponentS3Writer s3Writer,
             SerializedComponentRedshiftWriter redshiftWriter,
-            ObjectMapper jsonMapper,
+            @Qualifier("americanExpressJsonMapper") ObjectMapper jsonMapper,
             CsvMapper csvMapper
             ){
         Set<FixedWidthDataFileComponent> s3IncludeFilter;
@@ -383,18 +385,30 @@ public class ApplicationConfiguration  {
                 .build();
     }
 
+    @Bean
+    public RunIdIncrementer runIdIncrementer(){
+        RunIdIncrementer runIdIncrementer=new RunIdIncrementer();
+        runIdIncrementer.setKey("run.id");
+        return runIdIncrementer;
+    }
+
     @Autowired
     @Bean(name = "americanExpressFileImportJob")
     public Job americanExpressFileImportJob(
             JobBuilderFactory jobBuilderFactory,
             @Qualifier("LoadAmexFileDataWarehouseViaDataLake") Step step1,
-            @Qualifier("DeleteLocallyPersistedFileAfterLoadComplete") Step step2
+            @Qualifier("DeleteLocallyPersistedFileAfterLoadComplete") Step step2,
+            RunIdIncrementer runIdIncrementer
     ) {
-        return jobBuilderFactory.get("americanExpressFileImportJob")
+        Job job = jobBuilderFactory.get("americanExpressFileImportJob")
+                .incrementer(runIdIncrementer)
                 .flow(step1)
                 .next(step2)
                 .end()
                 .build();
+        job.isRestartable();
+
+        return job;
     }
 
 

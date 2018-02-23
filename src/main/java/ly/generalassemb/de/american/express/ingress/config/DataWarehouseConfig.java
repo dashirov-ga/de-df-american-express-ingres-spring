@@ -84,6 +84,15 @@ public class DataWarehouseConfig {
     }
 
     private String url;
+    private String driverClassName;
+
+    public String getDriverClassName() {
+        return driverClassName;
+    }
+
+    public void setDriverClassName(String driverClassName) {
+        this.driverClassName = driverClassName;
+    }
 
     private SshTunnel sshTunnel;
 
@@ -108,7 +117,6 @@ public class DataWarehouseConfig {
     public DataSource dwRedshiftDataSource() throws JSchException, IOException, URISyntaxException {
         if (sshTunnel.isEnabled()) {
             URI current = getUri(url);
-
             String tunnelDefinition =
                     String.format("%s@%s:%s|127.0.0.1:%s:%s:%s",
                             //System.getProperty("user.name"),
@@ -119,15 +127,10 @@ public class DataWarehouseConfig {
                             current.getHost(),
                             current.getPort());
             String newURL = rewriteJDBCUrl(url, "127.0.0.1", current.getPort());
-
             LOGGER.info("Connecting to " + newURL + " via tunnel " + tunnelDefinition);
-
             DataSource dataSource = DataSourceBuilder.create()
                     .url( newURL )
                     .build();
-
-
-
             DefaultSessionFactory defaultSessionFactory = new DefaultSessionFactory();
             defaultSessionFactory.setKnownHosts(new FileInputStream(sshTunnel.getKnownHosts()));
             defaultSessionFactory.setIdentityFromPrivateKey(sshTunnel.getPrivateKey().getAbsolutePath());
@@ -135,8 +138,8 @@ public class DataWarehouseConfig {
                     new TunnelConnectionManager(defaultSessionFactory, tunnelDefinition),
                     dataSource);
         } else {
-            LOGGER.info("Connecting to " + url );
-            return DataSourceBuilder.create().build();
+            LOGGER.info("Connecting to " + url +" with " + driverClassName);
+            return DataSourceBuilder.create().driverClassName(driverClassName).build();
 
         }
     }

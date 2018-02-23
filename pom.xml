@@ -36,7 +36,26 @@
         <newrelic.application.name>${project.name}</newrelic.application.name>
     </properties>
 
+    <distributionManagement>
+        <repository>
+            <id>S3_releases</id>
+            <url>https://nexus.generalassemb.ly/repository/maven-ga-releases/</url>
+        </repository>
+
+        <snapshotRepository>
+            <uniqueVersion>true</uniqueVersion>
+            <id>S3_snapshots</id>
+            <url>https://nexus.generalassemb.ly/repository/maven-ga-snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
+
+
     <dependencies>
+        <!--dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-task</artifactId>
+            <version>1.2.2.RELEASE</version>
+        </dependency-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>
@@ -90,15 +109,8 @@
 
         <dependency>
             <groupId>org.springframework.integration</groupId>
-            <artifactId>spring-integration-jdbc</artifactId>
+            <artifactId>spring-integration-jmx</artifactId>
         </dependency>
-
-
-        <!--dependency>
-            <groupId>com.amazon.redshift</groupId>
-            <artifactId>redshift-jdbc42</artifactId>
-            <version>${aws.redshift.jdbc.version}</version>
-        </dependency-->
 
         <dependency>
             <groupId>com.amazonaws</groupId>
@@ -250,6 +262,19 @@
             <artifactId>commons-dbcp2</artifactId>
             <version>2.2.0</version>
         </dependency>
+        <dependency>
+            <groupId>io.dropwizard.metrics</groupId>
+            <artifactId>metrics-core</artifactId>
+            <version>4.0.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
     </dependencies>
     <repositories>
 
@@ -297,6 +322,7 @@
                 <filtering>false</filtering>
             </resource>
         </resources>
+
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
