@@ -29,7 +29,7 @@ import java.util.Date;
 
 })
 @JsonInclude(JsonInclude.Include.NON_NULL)
-@Record
+@Record(length = 2100)
 public class Header {
     @JsonProperty("RECORD_TYPE")
     

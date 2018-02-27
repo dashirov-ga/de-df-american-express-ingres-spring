@@ -53,7 +53,7 @@ import java.util.Date;
         "INQUIRY_MARKET_CODE",
         "SELLER_ID"
 })
-@Record
+@Record(length = 2100)
 public class Detail {
     @JsonProperty("RECORD_TYPE")
     

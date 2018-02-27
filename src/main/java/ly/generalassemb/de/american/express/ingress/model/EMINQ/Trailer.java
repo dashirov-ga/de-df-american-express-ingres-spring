@@ -30,7 +30,7 @@ import java.util.Date;
         "STARS_CREATION_TIME",
         "STARS_FILE_SEQUENCE_NUMBER"
 })
-@Record
+@Record(length = 2100)
 public class Trailer {
     @JsonProperty("RECORD_TYPE")
     
