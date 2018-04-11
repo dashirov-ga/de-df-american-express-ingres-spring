@@ -107,5 +107,6 @@ public class EPAPEFixedWidthDataFileComponentSerializer implements FixedWidthDat
         component.setPayload(new String(Files.readAllBytes(pojo.getInputFile().toPath())));
         output.add(component);
 
-        return output;    }
+        return output;
+    }
 }
