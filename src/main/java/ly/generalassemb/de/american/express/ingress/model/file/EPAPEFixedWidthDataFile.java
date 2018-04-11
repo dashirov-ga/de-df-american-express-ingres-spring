@@ -112,10 +112,9 @@ public class EPAPEFixedWidthDataFile extends FixedWidthDataFileImpl {
                             // SOC always opens a new submission!
 
                             // 1. If previous submission is open for data accumulation, close it and push to master
-                            if (currentMerchantSubmission != null)
-                                currentReconciledPayment.put(currentMerchantSubmission);
-                            // 2. Open a new submission with a SOC record
                             currentMerchantSubmission = new MerchantSubmission();
+                            currentReconciledPayment.put(currentMerchantSubmission);
+                            // 2. Open a new submission with a SOC record
                             currentMerchantSubmission.put(soc);
                             // 3. Remember Branch number to interrupt accumulation if SOC-less adjustments
                             // for another branch start pouring in

@@ -59,6 +59,7 @@ public class EPAPEFixedWidthDataFileComponentSerializer implements FixedWidthDat
                                 .collect(Collectors.toList())
                 )
         );
+        output.add(component);
 
         component=  new SerializedComponent<>();
         component.setParentId(pojo.getInputFile().getName());
@@ -75,6 +76,7 @@ public class EPAPEFixedWidthDataFileComponentSerializer implements FixedWidthDat
                 )
 
         );
+        output.add(component);
 
         component=  new SerializedComponent<>();
         component.setParentId(pojo.getInputFile().getName());
@@ -90,6 +92,7 @@ public class EPAPEFixedWidthDataFileComponentSerializer implements FixedWidthDat
                         )
 
         );
+        output.add(component);
 
         component=  new SerializedComponent<>();
         component.setParentId(pojo.getInputFile().getName());
