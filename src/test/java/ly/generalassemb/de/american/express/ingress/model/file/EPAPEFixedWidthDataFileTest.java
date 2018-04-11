@@ -1,8 +1,11 @@
 package ly.generalassemb.de.american.express.ingress.model.file;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import ly.generalassemb.de.american.express.ingress.model.EPAPE.PaymentRecord;
 import ly.generalassemb.de.american.express.ingress.model.EPAPE.ReconciledPayment;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
@@ -12,6 +15,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 public class EPAPEFixedWidthDataFileTest {
+    private ObjectMapper jsonMapper = new ObjectMapper();
+
+    @Before
+    public void initialize(){
+        jsonMapper.registerModule(new JavaTimeModule());
+    }
     @Test
     public void testDefaultConstructor(){
         EPAPEFixedWidthDataFile epape = new EPAPEFixedWidthDataFile();
@@ -56,11 +65,13 @@ public class EPAPEFixedWidthDataFileTest {
         //     Continue: testing BigDecimal is configured correctly
         Assert.assertEquals(BigDecimal.valueOf( 120840L,2), firstPaymentSummary.getSettlementAmount());
         Assert.assertEquals(BigDecimal.valueOf(1208.40).setScale(2), firstPaymentSummary.getSettlementAmount());
-        Assert.assertEquals(1208.40, firstPaymentSummary.getSettlementAmount().doubleValue());
+        Assert.assertEquals(1208.40, firstPaymentSummary.getSettlementAmount().doubleValue(),1);
 
 
         // Sample contains 3 pricing records
         Assert.assertEquals(3, firstPayment.getPricingRecords().size());
+        // Sample containst 3 socs
+        Assert.assertEquals(3,firstPayment.getMerchantSubmissions().size());
 
 
 
