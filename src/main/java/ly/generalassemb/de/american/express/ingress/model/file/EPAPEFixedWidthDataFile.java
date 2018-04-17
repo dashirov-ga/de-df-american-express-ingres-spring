@@ -22,45 +22,50 @@ import java.util.stream.Collectors;
 
 public class EPAPEFixedWidthDataFile extends FixedWidthDataFileImpl {
     private List<ReconciledPayment> paymentList;
+
     public void put(ReconciledPayment reconciledPayment) {
         this.paymentList.add(reconciledPayment);
     }
+
     public EPAPEFixedWidthDataFile(File fileName) throws Exception {
         paymentList = new ArrayList<>();
         this.parse(fileName);
     }
+
     public EPAPEFixedWidthDataFile() {
         this.paymentList = new ArrayList<>();
     }
+
     public List<ReconciledPayment> getPaymentList() {
         return paymentList;
     }
+
     public void setPaymentList(List<ReconciledPayment> paymentList) {
         this.paymentList = paymentList;
     }
 
 
-    public Object lineToRecord(String line){
+    public Object lineToRecord(String line) {
         String htIndicator = line.substring(0, 5);
         if ("DFHDR".equals(htIndicator)) {
-            return  manager.load(Header.class, line);
-        } else if ("DFTLR".equals(htIndicator) ){
+            return manager.load(Header.class, line);
+        } else if ("DFTLR".equals(htIndicator)) {
             return manager.load(Trailer.class, line);
         } else {
             String dtIndicator = line.substring(32, 35);
             if ("100".equals(dtIndicator)) {
                 return manager.load(PaymentRecord.class, line);
             } else if ("110".equals(dtIndicator)) {
-                return manager.load(PricingRecord.class,line);
+                return manager.load(PricingRecord.class, line);
             } else if ("210".equals(dtIndicator)) {
                 return manager.load(SOCRecord.class, line);
             } else if ("260".equals(dtIndicator)) {
                 return manager.load(ROCRecord.class, line);
             } else if ("230".equals(dtIndicator)) {
-                return manager.load(AdjustmentRecord.class,line);
+                return manager.load(AdjustmentRecord.class, line);
             }
         }
-        return null ;
+        return null;
     }
 
 
@@ -124,7 +129,7 @@ public class EPAPEFixedWidthDataFile extends FixedWidthDataFileImpl {
                             // record of charge
                             if (currentMerchantSubmission == null)
                                 throw new ParseException("ROC record not expected", lineNo);
-                            ROCRecord roc = manager.load(ROCRecord.class,line);
+                            ROCRecord roc = manager.load(ROCRecord.class, line);
                             roc.setPaymentId(currentReconciledPayment.getPaymentSummary().getPaymentId());
                             roc.setSocId(currentMerchantSubmission.getSocRecord().getSocId());
                             currentMerchantSubmission.put(roc);
@@ -194,8 +199,8 @@ public class EPAPEFixedWidthDataFile extends FixedWidthDataFileImpl {
                 csvMapper.writer(csvMapper.schemaFor(AdjustmentRecord.class).withHeader())
                         .writeValueAsString(
                                 this.getPaymentList().stream()
-                                        .flatMap(reconciledPayment->reconciledPayment.getMerchantSubmissions().stream())
-                                        .flatMap(merchantSubmission->merchantSubmission.getAdjustments().stream())
+                                        .flatMap(reconciledPayment -> reconciledPayment.getMerchantSubmissions().stream())
+                                        .flatMap(merchantSubmission -> merchantSubmission.getAdjustments().stream())
                                         .collect(Collectors.toList())
                         )
 
@@ -206,7 +211,7 @@ public class EPAPEFixedWidthDataFile extends FixedWidthDataFileImpl {
                 csvMapper.writer(csvMapper.schemaFor(SOCRecord.class).withHeader()).
                         writeValueAsString(
                                 this.getPaymentList().stream()
-                                        .flatMap(reconciledPayment->reconciledPayment.getMerchantSubmissions().stream())
+                                        .flatMap(reconciledPayment -> reconciledPayment.getMerchantSubmissions().stream())
                                         .map(MerchantSubmission::getSocRecord)
                                         .collect(Collectors.toList())
                         )
@@ -217,7 +222,7 @@ public class EPAPEFixedWidthDataFile extends FixedWidthDataFileImpl {
                 csvMapper.writer(csvMapper.schemaFor(ROCRecord.class).withHeader())
                         .writeValueAsString(
                                 this.getPaymentList().stream()
-                                        .flatMap(reconciledPayment->reconciledPayment.getMerchantSubmissions().stream())
+                                        .flatMap(reconciledPayment -> reconciledPayment.getMerchantSubmissions().stream())
                                         .flatMap(merchantSubmission -> merchantSubmission.getRocRecords().stream())
                                         .collect(Collectors.toList())
                         )

@@ -5,9 +5,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Path;
-import java.text.ParseException;
 import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -19,7 +17,7 @@ public class FixedWidthDataFileFactory {
 
     private static final Pattern fileNamePattern = Pattern.compile("^(?<account>[A-Za-z0-9]+)[.](?<type>(?:EPAPE|EPTRN|CBNOT|EMINQ|EMCBK))[#-](?<fileId>[A-Za-z0-9]+).*$");
 
-    public static FixedWidthDataFile parse(File file) throws NotRegisteredException, IOException, ParseException {
+    public static FixedWidthDataFile parse(File file) throws NotRegisteredException {
         return FixedWidthDataFileFactory.parse(getTypeforName(file.getName()), file);
     }
 
@@ -27,8 +25,6 @@ public class FixedWidthDataFileFactory {
     public static FixedWidthDataFile parse(Path file) throws NotRegisteredException {
         return FixedWidthDataFileFactory.parse(getTypeforName(file.getFileName().toString()), file.toFile());
     }
-
-
     public static FixedWidthDataFileType getTypeforName(String name) throws NotRegisteredException {
         Matcher m = fileNamePattern.matcher(name);
         if (m.matches())
@@ -54,11 +50,7 @@ public class FixedWidthDataFileFactory {
             } else {
                 return null;
             }
-
-            if (out!=null) {
-                out.setInputFile(file);
-            }
-
+            out.setInputFile(file);
             return out;
         } catch (Exception e) {
             LOGGER.error("Factory method failed.");

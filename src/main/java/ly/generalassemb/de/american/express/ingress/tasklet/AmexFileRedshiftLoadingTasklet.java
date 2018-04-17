@@ -138,6 +138,7 @@ public class AmexFileRedshiftLoadingTasklet  implements Tasklet, InitializingBea
         return RepeatStatus.FINISHED;
     }
     public List<SerializedComponent<String>> getComponents(final FixedWidthDataFile somePojo) throws Exception {
+        // TODO: Switch to FixedWidthDataFileComponentSerializerFactory and exclusive use of CsvMapper
         if (somePojo instanceof CBNOTFixedWidthDataFile)
             return new CBNOTFixedWidthDataFileComponentSerializer().getComponents((CBNOTFixedWidthDataFile)somePojo,csvMapper, jsonMapper);
         if (somePojo instanceof EMCBKFixedWidthDataFile)

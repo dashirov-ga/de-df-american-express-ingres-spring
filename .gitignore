@@ -86,3 +86,4 @@ src/main/resources/amex_production_id
 src/main/resources/known_hosts
 src/test/resources-filtered/
 /src/main/resources/newrelic.properties
+/src/main/resources/4096_20161121_rsa_id
